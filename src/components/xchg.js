@@ -1,9 +1,10 @@
-var xchg_utils = new makeXchg();
-export default xchg_utils;
+var xchg = new makeXchg();
+export default xchg;
 
 import base32 from "./base32";
 import axios from "axios";
 import JSZip from "jszip";
+import makeXPeer from "./xpeer";
 
 function makeXchg() {
     return {
@@ -39,7 +40,7 @@ function makeXchg() {
 
         arrayBufferToBinaryString(arrayBuffer) {
             var binaryString = "";
-            var bytes = new Uint8Array(buffer);
+            var bytes = new Uint8Array(arrayBuffer);
             var len = bytes.byteLength;
             for (var i = 0; i < len; i++) {
                 binaryString += String.fromCharCode(bytes[i]);
@@ -47,20 +48,12 @@ function makeXchg() {
             return binaryString;
         },
 
-        makeXchgrReadRequest(address) {
-            address = address.replaceAll("#", "");
-            var myBuffer = new ArrayBuffer(46);
-            var view1 = new DataView(myBuffer);
-            view1.setBigUint64(0, BigInt(0)); // AfterId
-            view1.setBigUint64(8, BigInt(1024 * 1024)); // MaxSize
-            var addressBS = this.addressToAddressBS(address);
-            console.log(addressBS);
-            var view2 = new DataView(addressBS);
-            for (var i = 0; i < 30; i++) {
-                view1.setInt8(i + 16, view2.getInt8(i));
-            }
-            var ww = this.arrayBufferToBase64(myBuffer)
-            return ww
+        async addressFromPublicKey(publicKey) {
+            console.log(publicKey)
+            var publicKeyBS = await this.rsaExportPublicKey(publicKey);
+            var publicKeyBSHash = await crypto.subtle.digest('SHA-256', publicKeyBS);
+            var addressBS = publicKeyBSHash.slice(0, 30);
+            return this.addressBSToAddress32(addressBS);
         },
 
         addressToAddressBS(address) {
@@ -68,19 +61,18 @@ function makeXchg() {
             return this.binaryStringToArrayBuffer(addressBS);
         },
 
-        async requestXchgrRead(address) {
-            try {
-                var frame = this.makeXchgrReadRequest(address);
-                const formData = new FormData();
-                formData.append('d', frame);
-                const response = await axios.post("http://localhost:8084/api/r", formData, {
-                    headers: formData.headers
-                },);
-                console.log("RESULT", response.data);
-                this.ttt = response.data;
-            } catch (ex) {
-                console.log(ex);
+        addressBSToAddress32(addressBS) {
+            var address32 = base32.encode(this.arrayBufferToBinaryString(addressBS))
+            return "#" + address32.toLowerCase();
+        },
+
+        address32ToAddressBS(address32) {
+            if (address32 === undefined) {
+                return new ArrayBuffer(30);
             }
+            address32 = address32.replaceAll("#", "")
+            var addressBinaryString = base32.decode(address32)
+            return this.binaryStringToArrayBuffer(addressBinaryString);
         },
 
         async rsaEncrypt(arrayBufferToEncrypt, publicKey) {
@@ -205,6 +197,107 @@ function makeXchg() {
             return content;
         },
 
+        makeTransaction() {
+            var t = {
+                length:0,
+                crc:0,
+                frameType:0,
+                transactionId:0n,
+                sessionId:0n,
+                offset:0,
+                totalSize:0,
+                srcAddress:"",
+                destAddress:"",
+                data:new ArrayBuffer(0),
+
+                serialize() {
+                    var result = new ArrayBuffer(128 + this.data.byteLength);
+                    var view = new DataView(result);
+                    view.setUint32(0, 128 + this.data.byteLength, true);
+                    view.setUint8(8, this.frameType);
+                    view.setBigUint64(16, BigInt(this.transactionId), true);
+                    view.setBigUint64(24, BigInt(this.sessionId), true);
+                    view.setUint32(32, this.offset, true);
+                    view.setUint32(36, this.totalSize, true);
+                    var srcAddressBS = xchg.address32ToAddressBS(this.srcAddress)
+                    var srcAddressBSView = new DataView(srcAddressBS);
+                    for (var i = 0; i < srcAddressBS.byteLength; i++) {
+                        view.setUint8(40 + i, srcAddressBSView.getUint8(i));
+                    }
+                    var destAddressBS = xchg.address32ToAddressBS(this.destAddress)
+                    var destAddressBSView = new DataView(destAddressBS);
+                    for (var i = 0; i < destAddressBS.byteLength; i++) {
+                        view.setUint8(70 + i, destAddressBSView.getUint8(i));
+                    }
+
+                    var dataView = new DataView(this.data);
+                    for (var i = 0; i < this.data.byteLength; i++) {
+                        view.setUint8(128 + i, dataView.getUint8(i));
+                    }
+                    return result;
+                }
+            }
+            return t
+        },
+
+        makeNonces(count) {
+            var ns = new ArrayBuffer(count * 16);
+            console.log("create nonces", ns.byteLength)
+            return {
+                nonces: ns,
+                noncesCount: count,
+                currentIndex: 0,
+                complexity: 0,
+                async fillNonce(index) {
+                    if (index >= 0 && index < this.noncesCount) {
+                        var view = new DataView(this.nonces);
+                        view.setUint32(index * 16, index, true);
+                        view.setUint8(index * 16 + 4, this.complexity);
+                        const randomArray = new Uint8Array(11);
+                        await crypto.getRandomValues(randomArray);
+                        for (var i = 0; i < 11; i++) {
+                            view.setUint8(5 + i, randomArray[i]);
+                        }
+                    }
+                },
+                async next() {
+                    await this.fillNonce(this.currentIndex);
+                    var result = new ArrayBuffer(16);
+                    var resultView = new DataView(result);
+                    var view = new DataView(this.nonces);
+                    for (var i = 0; i < 16; i++) {
+                        resultView.setUint8(i, view.getUint8(this.currentIndex * 16 + i), true);
+                    }
+                    this.currentIndex++;
+                    if (this.currentIndex >= this.noncesCount) {
+                        this.currentIndex = 0;
+                    }
+                    return result;
+                },
+                check(nonce) {
+                    if (nonce.byteLength != 16) {
+                        return false;
+                    }
+                    var view = new DataView(nonce);
+                    var index = view.getUint32(0, true);
+                    if (index < 0 || index >= this.noncesCount) {
+                        return false;
+                    }
+
+                    var viewNonces = new DataView(this.nonces);
+
+                    for (var i = 0; i < 16; i++) {
+                        if (view.getUint8(i) != viewNonces.getUint8(index * 16 + i)) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                },
+            };
+        },
+
+
         testData() {
             var buf = new ArrayBuffer(2);
             var v = new DataView(buf);
@@ -214,10 +307,6 @@ function makeXchg() {
         },
 
         async test() {
-            var content = await this.unpack();
-            console.log(content)
-            var content64 = this.arrayBufferToBase64(content);
-            console.log(content64)
         },
     }
 }
