@@ -297,6 +297,24 @@ function makeXchg() {
             };
         },
 
+        copyBA(destBA, destOffset, srcBA, srcOffsetBegin, srcOffsetEnd) {
+            if (srcOffsetBegin === undefined) {
+                srcOffsetBegin = 0;
+            }
+            if (srcOffsetEnd === undefined) {
+                srcOffsetEnd = srcBA.byteLength;
+            }
+            var destView = new DataView(destBA);
+            var srcView = new DataView(srcBA);
+            var size = srcOffsetEnd - srcOffsetBegin;
+            for (var i = 0; i < size; i++) {
+                var srcOffset = srcOffsetBegin + i;
+                var targetOffset = destOffset + i;
+                if (targetOffset >= 0 || targetOffset < destBA.byteLength) {
+                    destView.setUint8(targetOffset, srcView.getUint8(srcOffset));
+                }
+            }
+        },
 
         testData() {
             var buf = new ArrayBuffer(2);
