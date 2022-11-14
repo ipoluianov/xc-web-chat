@@ -1,11 +1,9 @@
 import xchg from "./xchg";
 import axios from "axios";
-import { checkCompatEnabled } from "@vue/compiler-core";
 
 export default function makeXPeer() {
     return {
         keyPair: {},
-        counter: 0,
         remotePeers: {},
         incomingTransactions: {},
         localAddress: "",
@@ -15,13 +13,12 @@ export default function makeXPeer() {
             this.localAddress = await xchg.addressFromPublicKey(this.keyPair.publicKey);
             console.log("start local address:", this.localAddress);
             this.timer = window.setInterval(this.backgroundWorker, 100, this);
-            this.nonces = xchg.makeNonces();
+            this.nonces = xchg.makeNonces(1000);
         },
         async stop() {
             window.clearInterval(this.timer)
         },
         backgroundWorker(ctx) {
-            ctx.counter++;
             ctx.requestXchgrRead(ctx.localAddress);
         },
         async call(address, func, data) {
@@ -39,23 +36,19 @@ export default function makeXPeer() {
         afterId: 0,
         makeXchgrReadRequest(address) {
             if (address == undefined) {
-                address = "";
+                throw "makeXchgrReadRequest: address is undefined";
             }
             address = address.replaceAll("#", "");
-            var myBuffer = new ArrayBuffer(46);
-            var view1 = new DataView(myBuffer);
-            view1.setBigUint64(0, BigInt(this.afterId), true); // AfterId
-            view1.setBigUint64(8, BigInt(1024 * 1024), true); // MaxSize
+            var buffer = new ArrayBuffer(8+8+30);
+            var bufferView = new DataView(buffer);
+            bufferView.setBigUint64(0, BigInt(this.afterId), true); // AfterId
+            bufferView.setBigUint64(8, BigInt(1024 * 1024), true); // MaxSize
             var addressBS = xchg.addressToAddressBS(address);
             if (addressBS.byteLength != 30) {
                 throw "wrong address length";
             }
-            var view2 = new DataView(addressBS);
-            for (var i = 0; i < 30; i++) {
-                view1.setInt8(i + 16, view2.getInt8(i));
-            }
-            var ww = xchg.arrayBufferToBase64(myBuffer)
-            return ww
+            xchg.copyBA(buffer, 16, addressBS);
+            return xchg.arrayBufferToBase64(buffer);
         },
 
         requestXchgrReadProcessing: false,
@@ -108,7 +101,6 @@ export default function makeXPeer() {
         },
         processFrame(frame) {
             var t = this.parseTransaction(frame);
-            console.log("PROCESS FRAME", t);
             if (t.frameType == 0x10) {
                 this.processFrame10(t);
             }
@@ -141,6 +133,8 @@ export default function makeXPeer() {
             var trCode = t.srcAddress + "/" + t.transactionId;
             var incomingTransaction = this.incomingTransactions[trCode];
             if (incomingTransaction == undefined) {
+                incomingTransaction = xchg.makeTransaction();
+                incomingTransaction.beginDT = Date.now();
                 incomingTransaction.length = 0;
                 incomingTransaction.crc = 0;
                 incomingTransaction.frameType = t.frameType;
@@ -166,7 +160,7 @@ export default function makeXPeer() {
 
             var response = this.onEdgeReceivedCall(incomingTransaction.sessionId, incomingTransaction.data);
             if (response != undefined) {
-                trResponse = xchg.makeTransaction();
+                var trResponse = xchg.makeTransaction();
                 trResponse.frameType = 0x11;
                 trResponse.transactionId = incomingTransaction.transactionId;
                 trResponse.sessionId = incomingTransaction.sessionId;
@@ -312,6 +306,7 @@ function makeRemotePeer(localAddr, address, localKeys) {
         sessionNonceCounter: 0,
         nextTransactionId: 0,
         outgoingTransactions: {},
+        authProcessing: false,
         start() {
             this.nonces = xchg.makeNonces(1000);
             this.timer = window.setInterval(this.backgroundWorker, 200, this);
@@ -323,23 +318,17 @@ function makeRemotePeer(localAddr, address, localKeys) {
         },
         async call(func, data) {
             if (this.remotePublicKey === undefined) {
-                await this.check();
+                await this.requestPublicKey();
             }
 
             if (this.sessionId === 0) {
-                var authResult = await this.auth();
-                if (!authResult) {
-                    throw "auth failed";
-                }
+                await this.auth();
             }
 
-            console.log("!!!CALL is processing!!!");
             var result = await this.regularCall(func, data, this.aesKey);
-            console.log("!!!CALL is OK!!!", result);
-
             return result;
         },
-        async check() {
+        async requestPublicKey() {
             var enc = new TextEncoder();
             var addr = this.remoteAddress
             var remoteAddressBS = enc.encode(addr);
@@ -370,7 +359,6 @@ function makeRemotePeer(localAddr, address, localKeys) {
         },
 
         async sendFrame(destAddress, frame) {
-            console.log("SEND FRAME FROM PEER", frame);
             var frame64 = xchg.arrayBufferToBase64(frame);
             const formData = new FormData();
             formData.append('d', frame64);
@@ -389,86 +377,137 @@ function makeRemotePeer(localAddr, address, localKeys) {
         },
 
         async auth() {
-            if (this.authProcessing) {
-                return false;
+            // Waiting for previous auth process
+            for (var i = 0; i < 100; i++) {
+                if (!this.authProcessing) {
+                    break;
+                }
+                await xchg.sleep(10);
             }
 
+            if (this.authProcessing) {
+                throw "auth is processing";
+            }
+
+            // Previous auth is SUCCESS
+            if (this.aesKey !== undefined && this.aesKey.byteLength == 32 && this.sessionId !== 0) {
+                return
+            }
+
+            // Encode auth data to ArrayBuffer
             var enc = new TextEncoder();
             this.authData = enc.encode("pass").buffer;
 
             try {
                 this.authProcessing = true;
-                var nonce = await this.regularCall("/xchg-get-nonce", new ArrayBuffer(0), new ArrayBuffer(0));
-                console.log("received auth nonce", nonce);
-                var nonceView = new DataView(nonce);
+
+                // Waiting for public key
+                for (var i = 0; i < 100; i++) {
+                    if (this.remotePublicKey !== undefined) {
+                        break;
+                    }
+                    await xchg.sleep(10);
+                }
+
+                // Cannot auth with unknown remote public key
                 if (this.remotePublicKey === undefined) {
                     throw "no remote public key"
                 }
 
-                var localPublicKeyBS = await xchg.rsaExportPublicKey(this.localKeys.publicKey);
-                var localPublicKeyBSView = new DataView(localPublicKeyBS);
-                var authDataView = new ArrayBuffer(this.authData);
+                // Get a nonce from server to auth
+                // The nonce is used to prevent replay attack
+                var nonce = await this.regularCall("/xchg-get-nonce", new ArrayBuffer(0), new ArrayBuffer(0));
 
+                if (nonce.byteLength != 16) {
+                    throw "wrong nonce length";
+                }
+
+                // RSA-2048 public key as an ArrayBuffer
+                var localPublicKeyBA = await xchg.rsaExportPublicKey(this.localKeys.publicKey);
+
+                // This path will be encrypted with remote public key:
+                // received nonce and secret auth data
                 var authFrameSecret = new ArrayBuffer(16 + this.authData.byteLength);
-                var authFrameSecretView = new DataView(authFrameSecret);
                 xchg.copyBA(authFrameSecret, 0, nonce);
                 xchg.copyBA(authFrameSecret, 16, this.authData);
 
-                console.log("this.remotePublicKey", this.remotePublicKey);
-
+                // Encrypt secret data (nonce and auth data) with RSA-2048
                 var encryptedAuthFrame = await xchg.rsaEncrypt(authFrameSecret, this.remotePublicKey);
-                var encryptedAuthFrameView = new DataView(encryptedAuthFrame);
-                var authFrame = new ArrayBuffer(4 + localPublicKeyBS.byteLength + encryptedAuthFrame.byteLength);
+
+                // Prepare final auth frame
+                // [0:4] - length of local public key
+                // [4:PK_LEN] - local public key
+                // [PK_LEN:] - encrypted (RSA-2048) nonce and auth data
+                var authFrame = new ArrayBuffer(4 + localPublicKeyBA.byteLength + encryptedAuthFrame.byteLength);
                 var authFrameView = new DataView(authFrame);
-                authFrameView.setUint32(0, localPublicKeyBS.byteLength, true);
-                for (var i = 0; i < localPublicKeyBS.byteLength; i++) {
-                    authFrameView.setUint8(4 + i, localPublicKeyBSView.getUint8(i));
-                }
-                for (var i = 0; i < encryptedAuthFrame.byteLength; i++) {
-                    authFrameView.setUint8(4 + localPublicKeyBS.byteLength + i, encryptedAuthFrameView.getUint8(i));
+                authFrameView.setUint32(0, localPublicKeyBA.byteLength, true);
+                xchg.copyBA(authFrame, 4, localPublicKeyBA);
+                xchg.copyBA(authFrame, 4 + localPublicKeyBA.byteLength, encryptedAuthFrame);
+
+                // --------------------------------------------------
+                // Call Auth
+                var result = await this.regularCall("/xchg-auth", authFrame, new ArrayBuffer(0), new ArrayBuffer(0));
+                // --------------------------------------------------
+
+                if (this.localKeys === undefined) {
+                    throw "auth: no local key";
                 }
 
-                var result = await this.regularCall("/xchg-auth", authFrame, new ArrayBuffer(0), new ArrayBuffer(0));
-                console.log("AUTH RSA DECRYPT1", result);
+                // Response encrypted by local public key
+                // Decrypt it
                 result = await xchg.rsaDecrypt(result, this.localKeys.privateKey);
-                console.log("AUTH RSA DECRYPT2", result);
+                if (result === undefined) {
+                    throw "auth: result of rsaDecrypt is undefined";
+                }
+
+                // Result:
+                // [0:8] - sessionId
+                // [8:40] - aes key of the session
                 if (result.byteLength != 8 + 32) {
                     throw "auth wrong response length";
                 }
 
+                // Get sessionId from the response
                 var resultView = new DataView(result);
-
                 this.sessionId = resultView.getBigUint64(0, true);
+
+                // Get AES key of the session
                 this.aesKey = result.slice(8);
             } catch (ex) {
-                console.log("auth ERROR", ex);
+                this.authProcessing = false;
+                throw ex;
             } finally {
                 this.authProcessing = false;
             }
-
-            console.log("!!!AUTH is OK!!!");
 
             return true;
         },
 
         async regularCall(func, data, aesKey) {
+            // Prepare function name
             var enc = new TextEncoder();
             var funcBS = enc.encode(func);
             funcBS = funcBS.buffer;
             if (funcBS.byteLength > 255) {
-                throw "funcBS.byteLength";
+                throw "regularCall: func length > 255";
             }
 
             var encrypted = false;
+
+            // Check local RSA keys
             if (this.localKeys === undefined) {
                 throw "localKeys === undefined";
             }
 
+            // Session nonce counter must be incremented everytime
             var sessionNonceCounter = this.sessionNonceCounter;
             this.sessionNonceCounter++;
 
+            // Prepare frame
             var frame = new ArrayBuffer(0);
             if (aesKey !== undefined && aesKey.byteLength == 32) {
+                // Session is active
+                // Using AES encryption with ZIP
                 frame = new ArrayBuffer(8 + 1 + funcBS.byteLength + data.byteLength);
                 var frameView = new DataView(frame);
                 frameView.setBigUint64(0, BigInt(sessionNonceCounter), true);
@@ -476,11 +515,11 @@ function makeRemotePeer(localAddr, address, localKeys) {
                 xchg.copyBA(frame, 9, funcBS);
                 xchg.copyBA(frame, 9 + funcBS.byteLength, data);
                 frame = await xchg.pack(frame);
-                console.log("aesKey:", aesKey);
-                console.log("frame", frame);
                 frame = await xchg.aesEncrypt(frame, aesKey);
                 encrypted = true;
             } else {
+                // Session is not active
+                // Encryption is not used
                 frame = new ArrayBuffer(1 + funcBS.byteLength + data.byteLength);
                 var frameView = new DataView(frame);
                 frameView.setUint8(0, funcBS.byteLength);
@@ -488,28 +527,23 @@ function makeRemotePeer(localAddr, address, localKeys) {
                 xchg.copyBA(frame, 1 + funcBS.byteLength, data);
             }
 
+            // Executing transaction with response waiting
             var result = await this.executeTransaction(this.sessionId, frame);
 
-            var resultViewPre = new DataView(result);
-            if (resultViewPre.getUint8(0) == 1) {
-                console.log("ERROR BIT: ", result);
-                resultData = new ArrayBuffer(result.byteLength - 1);
-                xchg.copyBA(resultData, 0, result, 1);
-                var dec = new TextDecoder();
-                throw dec.decode(resultData);
-            }
-
             if (encrypted) {
+                // Request was encrypted with AES
+                // Expect encrypted response
                 result = await xchg.aesDecrypt(result, aesKey);
+                // UnZIP
                 result = await xchg.unpack(result);
             }
 
+            // Minimum size of response is 1 byte
             if (result.byteLength < 1) {
                 throw "result.byteLength < 1";
             }
 
             var resultData = new ArrayBuffer(0);
-            //console.log("result", result);
             var resultView = new DataView(result);
             if (resultView.getUint8(0) == 0) {
                 // Success
@@ -529,7 +563,6 @@ function makeRemotePeer(localAddr, address, localKeys) {
         },
 
         async processFrame11(transaction) {
-            console.log("REMOTE PEER processFrame11", transaction);
             var t = this.outgoingTransactions[transaction.transactionId];
             if (t === undefined) {
                 console.log("transaction not found", transaction.transactionId, this.outgoingTransactions);
@@ -585,7 +618,6 @@ function makeRemotePeer(localAddr, address, localKeys) {
 
                 for (var i = 0; i < 100; i++) {
                     if (t.complete) {
-                        console.log("transaction SUCCESS!");
                         delete this.outgoingTransactions[transactionId];
                         if (t.err !== undefined) {
                             throw t.err
