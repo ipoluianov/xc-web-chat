@@ -49,7 +49,6 @@ function makeXchg() {
         },
 
         async addressFromPublicKey(publicKey) {
-            console.log(publicKey)
             var publicKeyBS = await this.rsaExportPublicKey(publicKey);
             var publicKeyBSHash = await crypto.subtle.digest('SHA-256', publicKeyBS);
             var addressBS = publicKeyBSHash.slice(0, 30);
@@ -98,6 +97,14 @@ function makeXchg() {
         },
 
         async aesEncrypt(arrayBufferToEncrypt, aesKey) {
+
+            var aesKeyNative = await window.crypto.subtle.importKey("raw", aesKey,
+            {
+                name: "AES-GCM",
+            },
+            true,
+            ["encrypt", "decrypt"]);
+
             const iv = window.crypto.getRandomValues(new Uint8Array(12));
             var res = await window.crypto.subtle.encrypt(
                 {
@@ -105,7 +112,7 @@ function makeXchg() {
                     length: 256,
                     iv: iv,
                 },
-                aesKey,
+                aesKeyNative,
                 arrayBufferToEncrypt
             );
 
@@ -125,6 +132,14 @@ function makeXchg() {
         },
 
         async aesDecrypt(arrayBufferEncrypted, aesKey) {
+            var aesKeyNative = await window.crypto.subtle.importKey("raw", aesKey,
+            {
+                name: "AES-GCM",
+            },
+            true,
+            ["encrypt", "decrypt"]);
+
+
             var bs = new Uint8Array(arrayBufferEncrypted);
             var iv = bs.subarray(0, 12);
             var ch = bs.subarray(12);
@@ -134,7 +149,7 @@ function makeXchg() {
                     length: 256,
                     iv: iv,
                 },
-                aesKey,
+                aesKeyNative,
                 ch
             );
             return res;
@@ -185,15 +200,15 @@ function makeXchg() {
 
         async pack(baData) {
             const zip = new JSZip();
-            zip.file("d", baData);
+            zip.file("data", baData);
             var content = await zip.generateAsync({type:"arrayBuffer"});
             return content
         },
 
         async unpack(baZIP) {
-            var baZIP = this.base64ToArrayBuffer(zip64);
+            //var baZIP = this.base64ToArrayBuffer(zip64);
             var zip = await JSZip.loadAsync(baZIP);
-            var content =  await zip.files["d"].async('arrayBuffer')
+            var content =  await zip.files["data"].async('arrayBuffer')
             return content;
         },
 
@@ -209,6 +224,8 @@ function makeXchg() {
                 srcAddress:"",
                 destAddress:"",
                 data:new ArrayBuffer(0),
+
+                receivedFrames: [],
 
                 serialize() {
                     var result = new ArrayBuffer(128 + this.data.byteLength);
@@ -235,6 +252,38 @@ function makeXchg() {
                         view.setUint8(128 + i, dataView.getUint8(i));
                     }
                     return result;
+                },
+
+                appendReceivedData(transaction) {
+                    if (this.receivedFrames.length < 1000) {
+                        var found = false;
+                        for (var i = 0; i < this.receivedFrames.length; i++) {
+                            var tr = this.receivedFrames[i];
+                            if (tr.offset == transaction.offset) {
+                                found = true;
+                                break;
+                            }
+                        }
+
+                        if (!found) {
+                            this.receivedFrames.push(transaction);
+                        }
+                    }
+
+                    var receivedDataLen = 0;
+                    for (var i = 0; i < this.receivedFrames.length; i++) {
+                        var tr = this.receivedFrames[i];
+                        receivedDataLen += tr.data.byteLength;
+                    }
+
+                    if (receivedDataLen == transaction.totalSize) {
+                        this.result = new ArrayBuffer(transaction.totalSize);
+                        for (var i = 0; i < this.receivedFrames.length; i++) {
+                            var tr = this.receivedFrames[i];
+                            xchg.copyBA(this.result, tr.offset, tr.data);
+                        }
+                        this.complete = true;
+                    }
                 }
             }
             return t
@@ -242,7 +291,6 @@ function makeXchg() {
 
         makeNonces(count) {
             var ns = new ArrayBuffer(count * 16);
-            console.log("create nonces", ns.byteLength)
             return {
                 nonces: ns,
                 noncesCount: count,
@@ -310,10 +358,14 @@ function makeXchg() {
             for (var i = 0; i < size; i++) {
                 var srcOffset = srcOffsetBegin + i;
                 var targetOffset = destOffset + i;
-                if (targetOffset >= 0 || targetOffset < destBA.byteLength) {
+                if (targetOffset >= 0 && targetOffset < destBA.byteLength) {
                     destView.setUint8(targetOffset, srcView.getUint8(srcOffset));
                 }
             }
+        },
+
+        sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
         },
 
         testData() {
