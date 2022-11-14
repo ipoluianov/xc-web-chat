@@ -8,6 +8,8 @@ export default function makeXPeer() {
         incomingTransactions: {},
         localAddress: "",
         nonces: {},
+        sessions: {},
+        nextSessionId: 1,
         async start() {
             this.keyPair = await xchg.generateRSAKeyPair();
             this.localAddress = await xchg.addressFromPublicKey(this.keyPair.publicKey);
@@ -39,7 +41,7 @@ export default function makeXPeer() {
                 throw "makeXchgrReadRequest: address is undefined";
             }
             address = address.replaceAll("#", "");
-            var buffer = new ArrayBuffer(8+8+30);
+            var buffer = new ArrayBuffer(8 + 8 + 30);
             var bufferView = new DataView(buffer);
             bufferView.setBigUint64(0, BigInt(this.afterId), true); // AfterId
             bufferView.setBigUint64(8, BigInt(1024 * 1024), true); // MaxSize
@@ -88,7 +90,7 @@ export default function makeXPeer() {
                     var frameLen = view.getUint32(offset, true);
                     if (offset + frameLen <= size) {
                         var frame = bytes.subarray(offset, offset + frameLen);
-                        this.processFrame(frame.buffer.slice(frame.byteOffset, frame.byteOffset + frameLen));
+                        await this.processFrame(frame.buffer.slice(frame.byteOffset, frame.byteOffset + frameLen));
                     } else {
                         break;
                     }
@@ -99,22 +101,27 @@ export default function makeXPeer() {
             }
             return
         },
-        processFrame(frame) {
+        async processFrame(frame) {
             var t = this.parseTransaction(frame);
-            if (t.frameType == 0x10) {
-                this.processFrame10(t);
-            }
-            if (t.frameType == 0x11) {
-                this.processFrame11(t);
-            }
-            if (t.frameType == 0x20) {
-                this.processFrame20(t);
-            }
-            if (t.frameType == 0x21) {
-                this.processFrame21(t);
+            console.log("process frame", t);
+            try {
+                if (t.frameType == 0x10) {
+                    await this.processFrame10(t);
+                }
+                if (t.frameType == 0x11) {
+                    await this.processFrame11(t);
+                }
+                if (t.frameType == 0x20) {
+                    await this.processFrame20(t);
+                }
+                if (t.frameType == 0x21) {
+                    await this.processFrame21(t);
+                }
+            } catch (ex) {
+                console.log("processFrame exception", ex);
             }
         },
-        processFrame10(t) {
+        async processFrame10(t) {
 
             // Remove old incoming transactions
             var foundForDelete = true;
@@ -158,38 +165,42 @@ export default function makeXPeer() {
 
             delete this.incomingTransactions[trCode];
 
-            var response = this.onEdgeReceivedCall(incomingTransaction.sessionId, incomingTransaction.data);
+            var response = await this.onEdgeReceivedCall(incomingTransaction.sessionId, incomingTransaction.data);
             if (response != undefined) {
                 var trResponse = xchg.makeTransaction();
                 trResponse.frameType = 0x11;
                 trResponse.transactionId = incomingTransaction.transactionId;
                 trResponse.sessionId = incomingTransaction.sessionId;
                 trResponse.offset = 0;
-                trResponse.totalSize = response.length;
+                trResponse.totalSize = response.byteLength;
                 trResponse.srcAddress = this.localAddress;
                 trResponse.destAddress = incomingTransaction.srcAddress;
+                trResponse.data = response;
+
+                console.log("sending ...", trResponse);
 
                 var offset = 0;
                 var blockSize = 1024;
-                while (offset < trResponse.data.length) {
+                while (offset < trResponse.data.byteLength) {
+                    console.log("sending ...", offset);
                     var currentBlockSize = blockSize;
-                    restDataLen = trResponse.data.length - offset;
+                    var restDataLen = trResponse.data.length - offset;
                     if (restDataLen < currentBlockSize) {
                         currentBlockSize = restDataLen;
                     }
 
-                    trBlock = xchg.makeTransaction();
+                    var trBlock = xchg.makeTransaction();
                     trBlock.frameType = 0x11;
                     trBlock.transactionId = trResponse.transactionId;
                     trBlock.sessionId = trResponse.sessionId;
                     trBlock.offset = offset;
-                    trBlock.totalSize = response.length;
+                    trBlock.totalSize = response.byteLength;
                     trBlock.srcAddress = trResponse.srcAddress;
                     trBlock.destAddress = trResponse.destAddress;
                     trBlock.data = trResponse.data.slice(offset, offset + currentBlockSize);
 
                     var responseFrameBlock = trBlock.serialize()
-                    this.sendFrame(trBlock.destAddress, responseFrameBlock);
+                    await this.sendFrame(trBlock.destAddress, responseFrameBlock);
                     offset += currentBlockSize;
                 }
             }
@@ -217,24 +228,17 @@ export default function makeXPeer() {
                 return
             }
 
-            var publicKeyBS = xchg.rsaExportPublicKey(this.keyPair.publicKey);
-            var publicKeyBSView = new DataView(publicKeyBS);
-            var signature = xchg.rsaSign(this.keyPair.privateKey, nonceHash);
-            var signatureView = new DataView(signature);
+            var publicKeyBS = await xchg.rsaExportPublicKey(this.keyPair.publicKey);
+            //console.log(publicKeyBS);
+            var signature = await xchg.rsaSign(nonceHash, this.keyPair.privateKey);
+            console.log("signature:", signature);
 
-            var response = new ArrayBuffer(16 + 256 + publicKeyBS.byteLength);
-            var respView = new DataView();
-            for (var i = 0; i < nonce.byteLength; i++) {
-                respView.setInt8(i + nonceView.getInt8(i));
-            }
-            for (var i = 0; i < signature.byteLength; i++) {
-                respView.setInt8(16 + isignatureView.getInt8(i));
-            }
-            for (var i = 0; i < publicKeyBS.byteLength; i++) {
-                respView.setInt8(16 + 256 + i, publicKeyBSView.getInt8(i));
-            }
+            var response = new ArrayBuffer(16 + 512 + publicKeyBS.byteLength);
+            xchg.copyBA(response, 0, nonce);
+            xchg.copyBA(response, 16, signature);
+            xchg.copyBA(response, 16 + 512, publicKeyBS);
 
-            trResponse = xchg.makeTransaction();
+            var trResponse = xchg.makeTransaction();
             trResponse.frameType = 0x21;
             trResponse.transactionId = 0;
             trResponse.sessionId = 0;
@@ -244,17 +248,20 @@ export default function makeXPeer() {
             trResponse.destAddress = t.srcAddress;
             trResponse.data = response;
 
+            console.log("response 21", trResponse);
             var frResponse = trResponse.serialize();
+            console.log("response 21 frame", frResponse);
             this.sendFrame(trResponse.destAddress, frResponse);
         },
         async processFrame21(t) {
-            if (t.data.byteLength < 16 + 256) {
+            console.log("received 21", t);
+            if (t.data.byteLength < 16 + 512) {
                 return
             }
 
             var receivedNonce = t.data.slice(0, 16);
 
-            var receivedPublicKeyBS = t.data.slice(16 + 256);
+            var receivedPublicKeyBS = t.data.slice(16 + 512);
             var receivedPublicKey = await xchg.rsaImportPublicKey(receivedPublicKeyBS);
             var receivedAddress = await xchg.addressFromPublicKey(receivedPublicKey);
             var remotePeer = this.remotePeers[receivedAddress];
@@ -280,16 +287,171 @@ export default function makeXPeer() {
             return t
         },
         async sendFrame(destAddress, frame) {
+            console.log("sendFrame", frame);
+            var frame64 = xchg.arrayBufferToBase64(frame);
             const formData = new FormData();
-            formData.append('d', frame);
+            formData.append('d', frame64);
             const response = await axios.post("http://localhost:8084/api/w", formData, {
                 headers: formData.headers
             },);
+            console.log("sendFrame ok", frame);
         },
 
-        onEdgeReceivedCall() {
+        async onEdgeReceivedCall(sessionId, data) {
+            var encrypted = false;
+            var session = undefined;
+            if (sessionId != 0) {
+                session = this.sessions[sessionId]
+            }
+
+            if (sessionId != 0) {
+                if (session === undefined) {
+                    throw "no session found";
+                }
+
+                data = await xchg.aesDecrypt(data, session.aesKey);
+                data = await xchg.unpack(data);
+                if (data.byteLength < 9) {
+                    throw "wrong data len";
+                }
+
+                encrypted = true;
+                var dataView = new DataView(data);
+                var callNonce = dataView.getBigUint64(0, true);
+                if (!session.snakeCounter.testAndDeclare(callNonce)) {
+                    throw "session nonce error";
+                }
+
+                data = data.slice(8);
+                session.lastAccessDT = Date.now();
+            } else {
+                if (data.byteLength < 1) {
+                    throw "wrong frame len (1)";
+                }
+            }
+
+            var dataView = new DataView(data);
+
+            var funcLen = dataView.getUint8(0);
+            if (data.byteLength < 1 + funcLen) {
+                throw "wrong data frame len(fn)";
+            }
+
+            var funcNameBA = data.slice(1, 1 + funcLen);
+            var funcName = new TextDecoder().decode(funcNameBA);
+            var funcParameter = data.slice(1 + funcLen);
+
+            console.log("funcName", funcName);
+
+            var response = new ArrayBuffer(0);
+
+            try {
+                if (sessionId == 0) {
+                    var processed = false;
+                    if (funcName === "/xchg-get-nonce") {
+                        response = await this.nonces.next();
+                        processed = true;
+                    }
+                    if (funcName === "/xchg-auth") {
+                        response = await this.processAuth(funcParameter);
+                        processed = true;
+                    }
+
+                    if (!processed) {
+                        throw "wrong func without session";
+                    }
+                } else {
+                    response = await this.processFunction(funcName, funcParameter);
+                }
+                var responseFinal = new ArrayBuffer(1 + response.byteLength);
+                var responseFinalView = new DataView(responseFinal);
+                console.log(responseFinal);
+                responseFinalView.setUint8(0, 0);
+                xchg.copyBA(responseFinal, 1, response);
+                response = responseFinal;
+                console.log("SERVER SUCCESS");
+            } catch (ex) {
+                console.log("SERVER ERROR", ex);
+                var errorBA = new TextEncoder().encode(ex.toString());
+                response = new ArrayBuffer(1 + errorBA.byteLength);
+                var responseView = new DataView(response);
+                responseView.setUint8(0, 1);
+                xchg.copyBA(response, 1, errorBA);
+            }
+
+            if (encrypted) {
+                response = await xchg.pack(response);
+                response = await xchg.aesEncrypt(response, session.aesKey);
+            }
+
+            return response;
         },
 
+        async processFunction(funcName, funcParameter) {
+            console.log("PROCESSING", funcName);
+            return new TextEncoder().encode("RESULT OF FUNCTION").buffer;            
+        },
+
+        async processAuth(funcParameter) {
+            if (funcParameter.byteLength < 4) {
+                throw "processAuth: funcParameter.byteLength < 4";
+            }
+
+            var funcParameterView = new DataView(funcParameter);
+
+            var remotePublicKeyBALen = funcParameterView.getUint32(0, true);
+            if (funcParameter.byteLength < 4 + remotePublicKeyBALen) {
+                throw "processAuth: funcParameter.byteLength < 4+remotePublicKeyBALen";
+            }
+            var remotePublicKeyBA = funcParameter.slice(4, 4 + remotePublicKeyBALen);
+            var remotePublicKey = await xchg.rsaImportPublicKey(remotePublicKeyBA);
+
+            var authFrameSecret = funcParameter.slice(4 + remotePublicKeyBALen);
+            var parameter = await xchg.rsaDecrypt(authFrameSecret, this.keyPair.privateKey);
+            console.log("parameter", parameter);
+            if (parameter.byteLength < 16) {
+                throw "processAuth: parameter.byteLength < 16";
+            }
+            var nonce = parameter.slice(0, 16);
+
+            this.nonces.check(nonce);
+
+            var authData = parameter.slice(16);
+            // TODO: check authData
+
+            var sessionId = this.nextSessionId;
+            this.nextSessionId++;
+
+            var session = makeSession();
+            session.id = sessionId;
+            session.lastAccessDT = Date.now();
+            session.aesKey = new ArrayBuffer(32);
+            var aesView = new DataView(session.aesKey);
+            const randomArray = new Uint8Array(32);
+            await crypto.getRandomValues(randomArray);
+            for (var i = 0; i < 32; i++) {
+                aesView.setUint8(i, randomArray[i]);
+            }
+            session.snakeCounter = xchg.makeSnakeCounter(100, 1);
+            this.sessions[sessionId] = session;
+
+            var response = new ArrayBuffer(8 + 32);
+            var responseView = new DataView(response);
+            responseView.setBigUint64(0, BigInt(sessionId), true);
+            xchg.copyBA(response, 8, session.aesKey);
+            response = await xchg.rsaEncrypt(response, remotePublicKey);
+            return response;
+        },
+
+    };
+}
+
+function makeSession() {
+    return {
+        id: BigInt(0),
+        aesKey: new ArrayBuffer(0),
+        lastAccessDT: 0,
+        snakeCounter: xchg.makeSnakeCounter(1000, 1),
     };
 }
 
@@ -354,6 +516,8 @@ function makeRemotePeer(localAddr, address, localKeys) {
             t.destAddress = this.remoteAddress;
             t.data = request;
             var frame = t.serialize()
+
+            console.log("send 20", t);
 
             this.sendFrame(t.destAddress, frame);
         },
@@ -614,22 +778,25 @@ function makeRemotePeer(localAddr, address, localKeys) {
                 tBlock.destAddress = this.remoteAddress;
                 var tBlockBA = tBlock.serialize();
 
+                console.log("send remote peer", tBlock);
                 await this.sendFrame(t.destAddress, tBlockBA);
-
-                for (var i = 0; i < 100; i++) {
-                    if (t.complete) {
-                        delete this.outgoingTransactions[transactionId];
-                        if (t.err !== undefined) {
-                            throw t.err
-                        }
-
-                        return t.result;
-                    }
-                    await xchg.sleep(10);
-                }
-
-                throw "transaction timeout";
+                offset += currentBlockSize;
             }
+
+            for (var i = 0; i < 100; i++) {
+                if (t.complete) {
+                    delete this.outgoingTransactions[transactionId];
+                    if (t.err !== undefined) {
+                        throw t.err
+                    }
+
+                    return t.result;
+                }
+                await xchg.sleep(10);
+            }
+
+            throw "transaction timeout";
+
         },
     };
 }

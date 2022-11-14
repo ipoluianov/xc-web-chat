@@ -96,14 +96,41 @@ function makeXchg() {
             return res;
         },
 
+        async rsaSign(arrayBufferEncrypted, privateKey) {
+            var exportedPrivateKey = await window.crypto.subtle.exportKey("pkcs8", privateKey);
+            console.log(exportedPrivateKey);
+
+            var privateKeyForSigning = await window.crypto.subtle.importKey(
+                "pkcs8",
+                exportedPrivateKey,
+                {
+                    name: "RSA-PSS",
+                    hash: "SHA-256",
+                },
+                true,
+                ["sign"]
+            );
+
+
+            var res = await window.crypto.subtle.sign(
+                {
+                    name: "RSA-PSS",
+                    saltLength: 32,
+                },
+                privateKeyForSigning,
+                arrayBufferEncrypted
+            );
+            return res;
+        },
+
         async aesEncrypt(arrayBufferToEncrypt, aesKey) {
 
             var aesKeyNative = await window.crypto.subtle.importKey("raw", aesKey,
-            {
-                name: "AES-GCM",
-            },
-            true,
-            ["encrypt", "decrypt"]);
+                {
+                    name: "AES-GCM",
+                },
+                true,
+                ["encrypt", "decrypt"]);
 
             const iv = window.crypto.getRandomValues(new Uint8Array(12));
             var res = await window.crypto.subtle.encrypt(
@@ -133,11 +160,11 @@ function makeXchg() {
 
         async aesDecrypt(arrayBufferEncrypted, aesKey) {
             var aesKeyNative = await window.crypto.subtle.importKey("raw", aesKey,
-            {
-                name: "AES-GCM",
-            },
-            true,
-            ["encrypt", "decrypt"]);
+                {
+                    name: "AES-GCM",
+                },
+                true,
+                ["encrypt", "decrypt"]);
 
 
             var bs = new Uint8Array(arrayBufferEncrypted);
@@ -201,29 +228,29 @@ function makeXchg() {
         async pack(baData) {
             const zip = new JSZip();
             zip.file("data", baData);
-            var content = await zip.generateAsync({type:"arrayBuffer"});
+            var content = await zip.generateAsync({ type: "arrayBuffer" });
             return content
         },
 
         async unpack(baZIP) {
             //var baZIP = this.base64ToArrayBuffer(zip64);
             var zip = await JSZip.loadAsync(baZIP);
-            var content =  await zip.files["data"].async('arrayBuffer')
+            var content = await zip.files["data"].async('arrayBuffer')
             return content;
         },
 
         makeTransaction() {
             var t = {
-                length:0,
-                crc:0,
-                frameType:0,
-                transactionId:0n,
-                sessionId:0n,
-                offset:0,
-                totalSize:0,
-                srcAddress:"",
-                destAddress:"",
-                data:new ArrayBuffer(0),
+                length: 0,
+                crc: 0,
+                frameType: 0,
+                transactionId: 0n,
+                sessionId: 0n,
+                offset: 0,
+                totalSize: 0,
+                srcAddress: "",
+                destAddress: "",
+                data: new ArrayBuffer(0),
 
                 receivedFrames: [],
 
@@ -255,6 +282,7 @@ function makeXchg() {
                 },
 
                 appendReceivedData(transaction) {
+                    console.log("appendReceivedData", transaction);
                     if (this.receivedFrames.length < 1000) {
                         var found = false;
                         for (var i = 0; i < this.receivedFrames.length; i++) {
@@ -282,6 +310,7 @@ function makeXchg() {
                             var tr = this.receivedFrames[i];
                             xchg.copyBA(this.result, tr.offset, tr.data);
                         }
+                        console.log("this.complete = true");
                         this.complete = true;
                     }
                 }
@@ -362,6 +391,59 @@ function makeXchg() {
                     destView.setUint8(targetOffset, srcView.getUint8(srcOffset));
                 }
             }
+        },
+
+        makeSnakeCounter(size, initValue) {
+            var initData = new ArrayBuffer(size);
+            var initDataView = new DataView(initData);
+            for (var i = 0; i < size; i++) {
+                initDataView.setUint8(i, 1);
+            }
+            var result = {
+                size: size,
+                lastProcessed: BigInt(-1),
+                data: initData,
+                testAndDeclare(counter) {
+                    counter = BigInt(counter)
+                    if (counter < (this.lastProcessed - BigInt(this.size))) {
+                        return false;
+                    }
+
+                    if (counter > this.lastProcessed) {
+                        var shiftRange = counter - this.lastProcessed;
+                        var dataView = new DataView(this.data);
+                        var newData = new ArrayBuffer(this.size);
+                        var newDataView = new DataView(newData);
+                        for (var i = 0; i < this.size; i++) {
+                            var b = 0;
+                            var oldAddressOfCell = BigInt(i) - shiftRange;
+                            if (oldAddressOfCell >= 0 && oldAddressOfCell < this.size) {
+                                b = dataView.getUint8(Number(oldAddressOfCell));
+                            }
+                            newDataView.setUint8(i, b);
+                        }
+                        this.data = newData;
+                        var dataViewN = new DataView(this.data);
+                        dataViewN.setUint8(0, 1);
+                        this.lastProcessed = counter;
+                        return true;
+                    }
+
+                    var index = this.lastProcessed - counter;
+                    if (index >= 0 && index < this.size) {
+                        var dataView = new DataView(this.data);
+                        if (dataView.getUint8(index) == 0) {
+                            dataView.setUint8(this.lastProcessed - counter, 1);
+                            return true;
+                        }
+                    }
+
+                    return false;
+                },
+            };
+
+            result.testAndDeclare(initValue);
+            return result;
         },
 
         sleep(ms) {

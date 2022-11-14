@@ -3,6 +3,7 @@
   <button @click="startPeer">Start</button>
   <button @click="stopPeer">Stop</button>
   <button @click="call">Call</button>
+  <button @click="callClient">Call client</button>
 </template>
 
 <script>
@@ -19,6 +20,7 @@ export default {
 
   mounted() {
     this.peer = makeXPeer();
+    this.clientPeer = makeXPeer();
   },
 
   methods: {
@@ -38,9 +40,24 @@ export default {
     },
     startPeer() {
       this.peer.start();
+      this.clientPeer.start();
     },
     async call() {
       this.timer = window.setInterval(this.backgroundWorker, 200, this);
+    },
+    async callClient() {
+      try {
+        var result = await this.clientPeer.call(
+          this.peer.localAddress,
+          "time",
+          new ArrayBuffer(0)
+        );
+        var enc = new TextDecoder();
+        this.ttt = enc.decode(result);
+        console.log("-=FINAL RESULT=-:", this.ttt);
+      } catch (ex) {
+        console.log("Call exception:", ex);
+      }
     },
     stopPeer() {
       this.peer.stop();
