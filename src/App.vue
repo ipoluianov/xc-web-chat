@@ -8,8 +8,6 @@
 
 <script>
 import xchg from "@/components/xchg";
-import base32 from "@/components/base32";
-import makeXPeer from "./components/xpeer";
 
 export default {
   data() {
@@ -19,8 +17,8 @@ export default {
   },
 
   mounted() {
-    this.peer = makeXPeer();
-    this.clientPeer = makeXPeer();
+    this.peer = xchg.makeXPeer();
+    this.clientPeer = xchg.makeXPeer();
   },
 
   methods: {
