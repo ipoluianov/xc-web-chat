@@ -4,15 +4,21 @@
   <button @click="stopPeer">Stop</button>
   <button @click="call">Call</button>
   <button @click="callClient">Call client</button>
+  <FunctionExecuter></FunctionExecuter>
 </template>
 
 <script>
 import xchg from "@/components/xchg";
+import FunctionExecuter from "./components/FunctionExecuter.vue";
 
 export default {
+  name: 'app',
+  components: {
+    FunctionExecuter
+  },
   data() {
     return {
-      ttt: "HELLO",
+      ttt: "---",
     };
   },
 
@@ -26,6 +32,7 @@ export default {
       try {
         var result = await this.peer.call(
           "#kpwwechavulhwyo6lbxgrijdtb4hc3wflt3yx6auo47von4r",
+          new TextEncoder().encode("pass").buffer,
           "time",
           new ArrayBuffer(0)
         );
