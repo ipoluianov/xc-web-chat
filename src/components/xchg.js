@@ -5,6 +5,8 @@ import axios from "axios";
 import JSZip from "jszip";
 
 function makeXchg() {
+
+
     return {
         base64ToArrayBuffer(base64string) {
             var binary_string = window.atob(base64string);
@@ -133,7 +135,7 @@ function makeXchg() {
                 ["verify"]
             );
 
-            console.log("Verify", publicKeyForVerify, signature, dataToVerify)
+            //console.log("Verify", publicKeyForVerify, signature, dataToVerify)
 
             var res = await window.crypto.subtle.verify(
                 {
@@ -145,7 +147,7 @@ function makeXchg() {
                 dataToVerify,
             );
 
-            console.log("VERIFY", res);
+            //console.log("VERIFY", res);
 
             return res;
         },
@@ -571,16 +573,16 @@ function makeXchg() {
             return o;
         },
 
-        async getNodesByAddress(address) {
+        async getNodesByAddress(network, address) {
             var result = [];
 
             if (address == undefined) {
                 return [];
             }
 
-            var network = await xchg.makeNetwork();
-            network = JSON.parse(network)
-            console.log("Network", network);
+            //var network = await xchg.makeNetwork();
+            //console.log("Network", network);
+
 
             address = address.replaceAll("#", "").toLowerCase();
             var addressBA = new TextEncoder().encode(address);
@@ -633,6 +635,7 @@ function makeXchg() {
                 sessions: {},
                 nextSessionId: 1,
                 routers: {},
+                network: undefined,
                 async start() {
                     this.keyPair = await xchg.generateRSAKeyPair();
                     this.localAddress = await xchg.addressFromPublicKey(this.keyPair.publicKey);
@@ -640,7 +643,10 @@ function makeXchg() {
                     this.timer = window.setInterval(this.backgroundWorker, 100, this);
                     this.nonces = xchg.makeNonces(1000);
 
-                    var nodes = await xchg.getNodesByAddress("#3xk6hf4jegiurclldhl74ddf2pqhrsozr5lvhavs6phr4uku");
+                    this.network = await xchg.makeNetwork();
+                    console.log("Network", this.network);
+
+                    var nodes = await xchg.getNodesByAddress(this.network, "#3xk6hf4jegiurclldhl74ddf2pqhrsozr5lvhavs6phr4uku");
 
                     for (var i = 0; i < nodes.length; i++) {
                         var addr = nodes[i];
@@ -666,7 +672,7 @@ function makeXchg() {
                     if (this.remotePeers[address] != undefined) {
                         remotePeer = this.remotePeers[address];
                     } else {
-                        remotePeer = xchg.makeRemotePeer(this.localAddress, address, authData, this.keyPair);
+                        remotePeer = xchg.makeRemotePeer(this.localAddress, address, authData, this.keyPair, this.network);
                         remotePeer.start();
                         this.remotePeers[address] = remotePeer;
                     }
@@ -901,7 +907,7 @@ function makeXchg() {
                     var frame64 = xchg.arrayBufferToBase64(frame);
                     const formData = new FormData();
                     formData.append('d', frame64);
-                    var nodes = await xchg.getNodesByAddress(destAddress);
+                    var nodes = await xchg.getNodesByAddress(this.network, destAddress);
                     for (var i = 0; i < nodes.length; i++) {
                         var node = nodes[i];
                         this.sendFrameToRouter(node, formData);
@@ -1069,7 +1075,7 @@ function makeXchg() {
             };
         },
 
-        NetworkContainerDefault: "UEsDBBQACAAIADWLdFUAAAAAAAAAAAAAAAAMAAkAbmV0d29yay5qc29uVVQFAAEGVXpj1NBBbqswEAbgvU8xmnXkBEIc4A7vXaBClQMTsAo2Mq6KEuXulVNaqVGlsJ2NF+Nfv76ZqwC0eiAsAf9pY/9TwI0ADGagKehhxBISpfJCJYcsjT/GmmB0/zo6Y8OEJbwIAOxCGMvtdq67dpaWwtZS+HD+TV7MKE96IpXF3l9B2eoLeVn37r15ltd9TzXJ2g0rkysMS9L59q+kgCqu67Vt6XvNqwAAHD2dzRwvtrv3AXZu+jnFkgJA3TSepjjHQyb3R3ncy0TtynyXf0Fi6PH49/Ft87QoTYs1RfGtxNL4yE9481Pe/D1vfsabf+DNV7z5R978nDe/4M3XvPkn3vyaN7/hzSfe/DMfvoBK3D4DAAD//1BLBwhlUgJHEgEAAB8NAABQSwMEFAAIAAgANYt0VQAAAAAAAAAAAAAAABAACQBzaWduYXR1cmUuYmFzZTY0VVQFAAEGVXpjBMC5YoIwAADQD3IQtRwZOpQiigiBkEPckDQiCfepX99nuIzPH/n3m4tLX6Q+CEXoEZ5n5krHxPCMMGg1rdINDYP0bk3EDRaYwyz+2qyH7aaBq05jPSKbL4zJJhC8/TxAqenIKqx17GYRLQ4RwgLEHsemOuK7HaC1nvwnQ9ihGPw5rxxdpIqdM5c/2+hj8u2yC4L5wIaMUV8/LUkamQenaK8t6HZSS0169DJ0O1fuYncXrin9RftQm9NwJS7sVcYqiSvmJz8wM492vIP1VdgKLV3BKbxJte0eahHesC+oFacP62hYDodEINOt97u3o/ryagPRdjWL6qj8fV9t5u9lM8kpU/3A/BqO1fN98nJx8pvb9ByCi3tOwClBJVF3HH9//wcAAP//UEsHCNxX1PkmAQAAWAEAAFBLAQIUABQACAAIADWLdFVlUgJHEgEAAB8NAAAMAAkAAAAAAAAAAAAAAAAAAABuZXR3b3JrLmpzb25VVAUAAQZVemNQSwECFAAUAAgACAA1i3RV3FfU+SYBAABYAQAAEAAJAAAAAAAAAAAAAABVAQAAc2lnbmF0dXJlLmJhc2U2NFVUBQABBlV6Y1BLBQYAAAAAAgACAIoAAADCAgAAAAA=",
+        NetworkContainerDefault: "UEsDBBQACAAIAGqPdFUAAAAAAAAAAAAAAAAMAAkAbmV0d29yay5qc29uVVQFAAHoXHpj1NBNasMwEAXgvU4xzDoo/pV/7tBeoJii2JNE1JaFJGhpyN2L0rQLU2i2s9Hi6fH4pIsAtHoh7AGftLHPFHEnAKNZKES9OOwhV6rtVFmrLN0Ya6LR86tbjY0Be3gRAHiO0fX7vZ5nGkmO67K3FN9X/yY/jZMHHUhVaXjbtBQfbK7+9FdTwJBUXtsT/WguAgDQeTqaj/Sw7LYHeF7Dr/jeAkA9TZ5CyrGuZNnIppS5yvo2a78hqbT9o1t83f07VBTdI0PpHMR9ccvPefML3vySN7/iza958xVvfsOb3/Lmd7z5mjf/wJs/8uZPvPnEm3/kwxcwiOtXAAAA//9QSwcIYD6Ex/sAAADGDAAAUEsDBBQACAAIAGqPdFUAAAAAAAAAAAAAAAAQAAkAc2lnbmF0dXJlLmJhc2U2NFVUBQAB6Fx6YwTAzYJjMAAA4AfqQcuoOMwhiL8NaUKl3ChlU7GmjWKffr6t8LuxcPfjC/JTQIGjf+mGhiYsFznIK57FhbjQtoL+PHcqVSc4G4c4615VatgYR8iaOONV3AvgpMnn8TOUsbTqN9Vwg1Zwjz26VsjWqsneb38piW7IzP+dmzdmrZIL9B7UzE349u2t04zJC0cpQuUlyUnV0ixsmauOsIOr/GOT0vHY3MmncIeEl1GxATHnDMAFPIuPcywBZ/yZ+XyUtZP9T7NubcLttrdzCOZSjXdiIXfUYYkmz7lis+nDeoLk+XRaaokhCvqgf8DswJKrDrW2jkX/yn8u0BbtKga2lVZ78W8qOP+hOXVNfZN+RfhAoq/gZKTIqCK2o3BY8A6/v38DAAD//1BLBwgHvBVNJgEAAFgBAABQSwECFAAUAAgACABqj3RVYD6Ex/sAAADGDAAADAAJAAAAAAAAAAAAAAAAAAAAbmV0d29yay5qc29uVVQFAAHoXHpjUEsBAhQAFAAIAAgAao90VQe8FU0mAQAAWAEAABAACQAAAAAAAAAAAAAAPgEAAHNpZ25hdHVyZS5iYXNlNjRVVAUAAehcemNQSwUGAAAAAAIAAgCKAAAAqwIAAAAA",
         NetworkContainerEncryptedPrivateKey: "uTC09uvV2vNvwes9yj+bb80UbQh14JSFG22MSMFYgd6odNyqRw9jluBfWg4ZE38k/rugSyvchj23DN54QM3lQxuiqe35YaSvkdAsNxumOaSvsXbezY4iz/WljSfqMjKVPHtUl81RusgNZAAegp8XL7u8UBFREPSQGqhqQGggDcnp8qtXz13yo3NVFJ1Zq+kkfWT2EJyhhi+u3LIpPE4s8I/ht9LERqYeGsXbWBxCwHWHa9MWHIsa6B2naL1VEEUdpQ1GvHNY62FWFMcjpUbXNJwNDEo2GUYXYv3cbj/HFrEebhglB6FomyjkHXWEPQf7CVZx3TVjZfmCTBL5f6ud/5MOvPX2aAbeVtvLw5fT5ZocnPExAMoFlYmwfSZWRauGFAavV7FLHvtkdGDQn33Z1adkL/Bgnz68ijR9SjA+XfQn7d2OTYIgN9FhhN1m8a4wovx4geRxFxJhe0kUVDHt+gXFPavBAcNb/iGu10CDk23WkFaN+eVTRP7WKviVhUsiraTW0CsGr1E0HYy6SY0A6PbEgWEP2azg8jAZRKiYG0uLyy81JN9C55oSAXcNKooqblcX4bPB9tI1cy4zbdhj6GehfxRQ872ZsGwnpDzy3iiQstI7XYhUvQKctl7IPz4JN++sP1qUvkFaUfEeXFtzzgZ5d92qsaMqz+6yA5kFk792I+W3F/mJdQnqeLhNKN3e+PWj2UlPpjFOmcCg6d/pKHCZk6GWYHU/V37/rLYkI6uw63r6/xMmpukXcbYvH5yd/5Ej0ohrtwz3iR5ZzpXVBIOlapW50lvYoBPLpPFtIKCPj3GMp8jqut9OsiYqCCmOdTKa49regsyJtomVhU+o26i8EHrvgGqQdHhFgDY2XlUB6C/KgKuYuML/8DzTyc+0qxnxeVMwC5Ug+H8qaBJMBlj0p1TDnGIKU2B/fostvL980a6pu9OUhgbCkEvQk8ba6KbDIsVjsVV2bAGi2sx4Gsr5z6x8O0taW+pO2ZE8gjq4WNiF9iWvG4JPclux0NbNhz3CPmfxhC80is25r6KbYHm8UhCTmsa7scWxV60pArpJyyoFf65L4kvxrmEKHAvUQYXs02wQ3e/mqaJuIzkfPkJFqB0R8y68nFLf3XKZQNaBT6QKaMEBfg0/CSkHCPZMRJMu+Rn85w1n4dB+J5mRKo/0cSk+3zGbQR+NbjgNIMUb/pUkJwrKhEJppejRBuu9Yvolu+q/2rnbBEElz/OrOyqw2vP9bbv0Q0HB2JkYD97j8aPbg8Vw6SOfaoyGzbJ21LNNlfPAWF4skyi8RvEAXGRnGS/zRDkTSUqANK+unAMgRTxEFgK2b86BMQuCxm6kPAW0GdY0nqkGvrdTK6Gs+8aLSI21dPHN/n2OCoIZvOqu3l9v6mlHtONJqbvfsDFk64hztO2p0SdhVi84I19y/hMJQESkKorGVR5XH/mKCBcBanYtpKhOtQZdWNT9taImL9EKtTeXcOfjs8YPSCGunueYp+nDBSmhlrC/K1mVCBAaUXVTxe1YaVGrXRMlIYUIB2g+KkV0d7ZNxzhqNJcw1Aud322IXI9aB4c8HismCRUp7NkRmTPYlT/hBJUJ1hVCIYWvzNYXd2Cse6bksv8KSpYf1rJHszGlvlHD4T8VBs29i0XDb5UyGLmLeyYRGz4=",
         NetworkContainerPublicKey: "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA8V7FEvpzVo4sLhE3rIEmKwbLmNZkweZLucv/vxIbj3y8jpJiEGT3kQA9JvGscdsS85gca34WCfKdMJBKErUm28/UAWnDZeVUmQyxwGXs2jO/OLQukwJT76Umsu/KIfr7zKxkzfm7fTsJ8q1ZYuHgndi4OTblKqy/tSynyEYFnlbpEvmIAS2ZJblarxaG5VJo3YA5ZdO5FTcuaSkZ+9v4uMvcwFK9qIigJCS+xJa+ubgN9cv2RuHuQB7+Qw9bGbCjk9cSGnbV0ttwoVMZxFkT72lAXdp5/NLWcRpKnnjEvkWKjo21ROeH6hk4qfa30Q/Q+hLbPxhLlXX2r9sNEEZkWQIDAQAB",
         NetworkContainerFileNetwork: "network.json",
@@ -1086,21 +1092,36 @@ function makeXchg() {
             contentSignature = new TextDecoder().decode(contentSignature)
             contentSignature = xchg.base64ToArrayBuffer(contentSignature)
 
-            //contentNetwork = await crypto.subtle.digest('SHA-256', contentNetwork);
-            //contentNetwork = await crypto.subtle.digest('SHA-256', contentNetwork);
-
-            //var verifyResult = await this.rsaVerify(contentNetwork, contentSignature, publicKey);
-            //console.log("verifyResult" ,verifyResult)
-            /*if (!verifyResult) {
+            var verifyResult = await this.rsaVerify(contentNetwork, contentSignature, publicKey);
+            if (!verifyResult) {
                 throw "network verify error";
-            }*/
-            return new TextDecoder().decode(contentNetwork);
+            }
+
+            return JSON.parse(new TextDecoder().decode(contentNetwork));
         },
 
         async makeNetwork() {
-            var n = await this.loadNetworkFromZip64(this.NetworkContainerDefault)
+            console.log("-=makeNetwork=-")
+            var network = await this.loadNetworkFromZip64(this.NetworkContainerDefault)
+            //var networks = []
+            for (var i = 0; i < network.initial_points.length; i++) {
+                try {
+                    var sourceUrl = network.initial_points[i];
+                    console.log("sourceUrl",sourceUrl);
+                    const response = await axios.get(sourceUrl);
+                    //console.log("RESP:", response)
+                    //response = new TextDecoder().decode(response.data)
+                    var n = await this.loadNetworkFromZip64(response.data)
+                    if (n.timestamp > network.timestamp) {
+                        network = n;
+                    }
+                } catch (ex) {
+                    console.log("network file error", ex);
+                }
+            }
+
             //console.log("NETWORK", n)
-            return n;
+            return network;
             //const response = await axios.get(sourceUrl);
             //return response.data;
         },
@@ -1195,7 +1216,7 @@ function makeXchg() {
             return peerHttp;
         },
 
-        makeRemotePeer(localAddr, address, authData, localKeys) {
+        makeRemotePeer(localAddr, address, authData, localKeys, network) {
             return {
                 counter: 0,
                 localKeys: localKeys,
@@ -1209,6 +1230,7 @@ function makeXchg() {
                 nextTransactionId: 0,
                 outgoingTransactions: {},
                 authProcessing: false,
+                network: network,
                 start() {
                     this.nonces = xchg.makeNonces(1000);
                     this.timer = window.setInterval(this.backgroundWorker, 200, this);
@@ -1276,7 +1298,7 @@ function makeXchg() {
                     const formData = new FormData();
                     formData.append('d', frame64);
 
-                    var nodes = await xchg.getNodesByAddress(destAddress);
+                    var nodes = await xchg.getNodesByAddress(this.network, destAddress);
                     for (var i = 0; i < nodes.length; i++) {
                         var node = nodes[i];
                         this.sendFrameToRouter(node, formData);
@@ -1629,7 +1651,7 @@ function makeXchg() {
                 privateKeyForSigning,
                 dataToVerify
             );
-            console.log("resSign", resSign);      
+            console.log("resSign", resSign);
 
             var res = await window.crypto.subtle.verify(
                 {
@@ -1646,7 +1668,7 @@ function makeXchg() {
             console.log(signature) // 
             console.log(hash) // OK
 
-            console.log("VERIFY", res);            
+            console.log("VERIFY", res);
         }
     }
 }

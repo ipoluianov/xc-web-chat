@@ -23,9 +23,9 @@ export default {
 
   data() {
     return {
-      address: "",
-      authData: "pass",
-      func: "version",
+      address: "#pem53ka2436w5bqgeaaqjud5uki4i7msbphqdezjehkz6ghp",
+      authData: "KF5OFPKMG72Y3GXXSB6T43KIXB7QHEEXUSMEYXYKLRDCQRWN",
+      func: "service_info",
       result: "-",
     };
   },
@@ -38,7 +38,7 @@ export default {
           this.address,
           new TextEncoder().encode(this.authData).buffer,
           this.func,
-          new ArrayBuffer(0)
+          new TextEncoder().encode("{}").buffer,
         );
         console.log(res);
         this.result = new TextDecoder().decode(res);

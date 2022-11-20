@@ -55,7 +55,7 @@ export default {
         var result = await this.clientPeer.call(
           this.peer.localAddress,
           "time",
-          new ArrayBuffer(0)
+          new TextEncoder().encode("{}"),
         );
         var enc = new TextDecoder();
         this.ttt = enc.decode(result);
