@@ -24,8 +24,8 @@ export default {
   data() {
     return {
       address: "",
-      authData: "pass111",
-      func: "func",
+      authData: "pass",
+      func: "version",
       result: "-",
     };
   },

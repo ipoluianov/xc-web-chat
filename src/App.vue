@@ -65,7 +65,8 @@ export default {
       }
     },
     stopPeer() {
-      this.peer.stop();
+      //this.peer.stop();
+      xchg.test11();
     },
   },
 };

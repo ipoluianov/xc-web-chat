@@ -111,7 +111,7 @@ function makeXchg() {
             var res = await window.crypto.subtle.sign(
                 {
                     name: "RSA-PSS",
-                    saltLength: 0,
+                    saltLength: 32,
                 },
                 privateKeyForSigning,
                 arrayBufferEncrypted
@@ -133,15 +133,20 @@ function makeXchg() {
                 ["verify"]
             );
 
+            console.log("Verify", publicKeyForVerify, signature, dataToVerify)
+
             var res = await window.crypto.subtle.verify(
                 {
                     name: "RSA-PSS",
-                    saltLength: 0,
+                    saltLength: 32,
                 },
                 publicKeyForVerify,
                 signature,
                 dataToVerify,
             );
+
+            console.log("VERIFY", res);
+
             return res;
         },
 
@@ -210,7 +215,7 @@ function makeXchg() {
         },
 
         async rsaImportPublicKey(publicKeyBA) {
-            var publicKey = window.crypto.subtle.importKey("spki",
+            var publicKey = await window.crypto.subtle.importKey("spki",
                 publicKeyBA,
                 {
                     name: "RSA-OAEP",
@@ -574,7 +579,8 @@ function makeXchg() {
             }
 
             var network = await xchg.makeNetwork();
-            //console.log("Network", network);
+            network = JSON.parse(network)
+            console.log("Network", network);
 
             address = address.replaceAll("#", "").toLowerCase();
             var addressBA = new TextEncoder().encode(address);
@@ -689,7 +695,7 @@ function makeXchg() {
                 },
                 async processFrame(frame) {
                     var t = this.parseTransaction(frame);
-                    // console.log("process frame", t);
+                    console.log("process frame", t);
                     try {
                         if (t.frameType == 0x10) {
                             await this.processFrame10(t);
@@ -855,7 +861,7 @@ function makeXchg() {
                         return
                     }
 
-                    //var nonceHash = await crypto.subtle.digest('SHA-256', receivedNonce);
+                    var nonceHash = await crypto.subtle.digest('SHA-256', receivedNonce);
                     var signature = t.data.slice(16, 16 + 256);
                     var verifyRes = await xchg.rsaVerify(receivedNonce, signature, receivedPublicKey);
                     if (verifyRes !== true) {
@@ -1063,9 +1069,40 @@ function makeXchg() {
             };
         },
 
+        NetworkContainerDefault: "UEsDBBQACAAIADWLdFUAAAAAAAAAAAAAAAAMAAkAbmV0d29yay5qc29uVVQFAAEGVXpj1NBBbqswEAbgvU8xmnXkBEIc4A7vXaBClQMTsAo2Mq6KEuXulVNaqVGlsJ2NF+Nfv76ZqwC0eiAsAf9pY/9TwI0ADGagKehhxBISpfJCJYcsjT/GmmB0/zo6Y8OEJbwIAOxCGMvtdq67dpaWwtZS+HD+TV7MKE96IpXF3l9B2eoLeVn37r15ltd9TzXJ2g0rkysMS9L59q+kgCqu67Vt6XvNqwAAHD2dzRwvtrv3AXZu+jnFkgJA3TSepjjHQyb3R3ncy0TtynyXf0Fi6PH49/Ft87QoTYs1RfGtxNL4yE9481Pe/D1vfsabf+DNV7z5R978nDe/4M3XvPkn3vyaN7/hzSfe/DMfvoBK3D4DAAD//1BLBwhlUgJHEgEAAB8NAABQSwMEFAAIAAgANYt0VQAAAAAAAAAAAAAAABAACQBzaWduYXR1cmUuYmFzZTY0VVQFAAEGVXpjBMC5YoIwAADQD3IQtRwZOpQiigiBkEPckDQiCfepX99nuIzPH/n3m4tLX6Q+CEXoEZ5n5krHxPCMMGg1rdINDYP0bk3EDRaYwyz+2qyH7aaBq05jPSKbL4zJJhC8/TxAqenIKqx17GYRLQ4RwgLEHsemOuK7HaC1nvwnQ9ihGPw5rxxdpIqdM5c/2+hj8u2yC4L5wIaMUV8/LUkamQenaK8t6HZSS0169DJ0O1fuYncXrin9RftQm9NwJS7sVcYqiSvmJz8wM492vIP1VdgKLV3BKbxJte0eahHesC+oFacP62hYDodEINOt97u3o/ryagPRdjWL6qj8fV9t5u9lM8kpU/3A/BqO1fN98nJx8pvb9ByCi3tOwClBJVF3HH9//wcAAP//UEsHCNxX1PkmAQAAWAEAAFBLAQIUABQACAAIADWLdFVlUgJHEgEAAB8NAAAMAAkAAAAAAAAAAAAAAAAAAABuZXR3b3JrLmpzb25VVAUAAQZVemNQSwECFAAUAAgACAA1i3RV3FfU+SYBAABYAQAAEAAJAAAAAAAAAAAAAABVAQAAc2lnbmF0dXJlLmJhc2U2NFVUBQABBlV6Y1BLBQYAAAAAAgACAIoAAADCAgAAAAA=",
+        NetworkContainerEncryptedPrivateKey: "uTC09uvV2vNvwes9yj+bb80UbQh14JSFG22MSMFYgd6odNyqRw9jluBfWg4ZE38k/rugSyvchj23DN54QM3lQxuiqe35YaSvkdAsNxumOaSvsXbezY4iz/WljSfqMjKVPHtUl81RusgNZAAegp8XL7u8UBFREPSQGqhqQGggDcnp8qtXz13yo3NVFJ1Zq+kkfWT2EJyhhi+u3LIpPE4s8I/ht9LERqYeGsXbWBxCwHWHa9MWHIsa6B2naL1VEEUdpQ1GvHNY62FWFMcjpUbXNJwNDEo2GUYXYv3cbj/HFrEebhglB6FomyjkHXWEPQf7CVZx3TVjZfmCTBL5f6ud/5MOvPX2aAbeVtvLw5fT5ZocnPExAMoFlYmwfSZWRauGFAavV7FLHvtkdGDQn33Z1adkL/Bgnz68ijR9SjA+XfQn7d2OTYIgN9FhhN1m8a4wovx4geRxFxJhe0kUVDHt+gXFPavBAcNb/iGu10CDk23WkFaN+eVTRP7WKviVhUsiraTW0CsGr1E0HYy6SY0A6PbEgWEP2azg8jAZRKiYG0uLyy81JN9C55oSAXcNKooqblcX4bPB9tI1cy4zbdhj6GehfxRQ872ZsGwnpDzy3iiQstI7XYhUvQKctl7IPz4JN++sP1qUvkFaUfEeXFtzzgZ5d92qsaMqz+6yA5kFk792I+W3F/mJdQnqeLhNKN3e+PWj2UlPpjFOmcCg6d/pKHCZk6GWYHU/V37/rLYkI6uw63r6/xMmpukXcbYvH5yd/5Ej0ohrtwz3iR5ZzpXVBIOlapW50lvYoBPLpPFtIKCPj3GMp8jqut9OsiYqCCmOdTKa49regsyJtomVhU+o26i8EHrvgGqQdHhFgDY2XlUB6C/KgKuYuML/8DzTyc+0qxnxeVMwC5Ug+H8qaBJMBlj0p1TDnGIKU2B/fostvL980a6pu9OUhgbCkEvQk8ba6KbDIsVjsVV2bAGi2sx4Gsr5z6x8O0taW+pO2ZE8gjq4WNiF9iWvG4JPclux0NbNhz3CPmfxhC80is25r6KbYHm8UhCTmsa7scWxV60pArpJyyoFf65L4kvxrmEKHAvUQYXs02wQ3e/mqaJuIzkfPkJFqB0R8y68nFLf3XKZQNaBT6QKaMEBfg0/CSkHCPZMRJMu+Rn85w1n4dB+J5mRKo/0cSk+3zGbQR+NbjgNIMUb/pUkJwrKhEJppejRBuu9Yvolu+q/2rnbBEElz/OrOyqw2vP9bbv0Q0HB2JkYD97j8aPbg8Vw6SOfaoyGzbJ21LNNlfPAWF4skyi8RvEAXGRnGS/zRDkTSUqANK+unAMgRTxEFgK2b86BMQuCxm6kPAW0GdY0nqkGvrdTK6Gs+8aLSI21dPHN/n2OCoIZvOqu3l9v6mlHtONJqbvfsDFk64hztO2p0SdhVi84I19y/hMJQESkKorGVR5XH/mKCBcBanYtpKhOtQZdWNT9taImL9EKtTeXcOfjs8YPSCGunueYp+nDBSmhlrC/K1mVCBAaUXVTxe1YaVGrXRMlIYUIB2g+KkV0d7ZNxzhqNJcw1Aud322IXI9aB4c8HismCRUp7NkRmTPYlT/hBJUJ1hVCIYWvzNYXd2Cse6bksv8KSpYf1rJHszGlvlHD4T8VBs29i0XDb5UyGLmLeyYRGz4=",
+        NetworkContainerPublicKey: "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA8V7FEvpzVo4sLhE3rIEmKwbLmNZkweZLucv/vxIbj3y8jpJiEGT3kQA9JvGscdsS85gca34WCfKdMJBKErUm28/UAWnDZeVUmQyxwGXs2jO/OLQukwJT76Umsu/KIfr7zKxkzfm7fTsJ8q1ZYuHgndi4OTblKqy/tSynyEYFnlbpEvmIAS2ZJblarxaG5VJo3YA5ZdO5FTcuaSkZ+9v4uMvcwFK9qIigJCS+xJa+ubgN9cv2RuHuQB7+Qw9bGbCjk9cSGnbV0ttwoVMZxFkT72lAXdp5/NLWcRpKnnjEvkWKjo21ROeH6hk4qfa30Q/Q+hLbPxhLlXX2r9sNEEZkWQIDAQAB",
+        NetworkContainerFileNetwork: "network.json",
+        NetworkContainerFileSignature: "signature.base64",
+
+        async loadNetworkFromZip64(zip64) {
+            var zipBA = xchg.base64ToArrayBuffer(zip64)
+            var publicKeyBA = this.base64ToArrayBuffer(this.NetworkContainerPublicKey)
+            var publicKey = await this.rsaImportPublicKey(publicKeyBA)
+            var zip = await JSZip.loadAsync(zipBA);
+            var contentNetwork = await zip.files[this.NetworkContainerFileNetwork].async('arrayBuffer')
+            var contentSignature = await zip.files[this.NetworkContainerFileSignature].async('arrayBuffer')
+
+            contentSignature = new TextDecoder().decode(contentSignature)
+            contentSignature = xchg.base64ToArrayBuffer(contentSignature)
+
+            //contentNetwork = await crypto.subtle.digest('SHA-256', contentNetwork);
+            //contentNetwork = await crypto.subtle.digest('SHA-256', contentNetwork);
+
+            //var verifyResult = await this.rsaVerify(contentNetwork, contentSignature, publicKey);
+            //console.log("verifyResult" ,verifyResult)
+            /*if (!verifyResult) {
+                throw "network verify error";
+            }*/
+            return new TextDecoder().decode(contentNetwork);
+        },
+
         async makeNetwork() {
-            const response = await axios.get(sourceUrl);
-            return response.data;
+            var n = await this.loadNetworkFromZip64(this.NetworkContainerDefault)
+            //console.log("NETWORK", n)
+            return n;
+            //const response = await axios.get(sourceUrl);
+            //return response.data;
         },
 
         makePeerHttp(routerHost, processor, localAddress) {
@@ -1232,7 +1269,7 @@ function makeXchg() {
                     } catch (ex) {
                         console.log("send exception: ", ex);
                     }
-                },                
+                },
 
                 async sendFrame(destAddress, frame) {
                     var frame64 = xchg.arrayBufferToBase64(frame);
@@ -1534,5 +1571,82 @@ function makeXchg() {
         sleep(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
         },
+
+        async test11() {
+            var privateKeyBS64 = "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC4T69E5NAQjf8yZDe1spPizbGkgmqYxr+0ry3NIYNkkpfa4GpwP5FFeg8/Zk22SNHqFy9txMkwVfxATLj2tB/BcqqjhUxq85unQlGxAyYatsy5VcxOronqizNjjd37/MEOHW7V3anK0sHes+BGat/2t10tZFWhP+KNF4l0D2SusmZ+iD/C+Yv8UAFtWAk9zpcUY6MnGm0Tv/FCVkiwbaUDwfz29meQnbse24iRxgRPQ7F1TLiLInir4savKD555hPTAEFIjd0Jetv3RUyF4qaRjko8bfe7F0GSXtQtIimu3+5oaroxKxg3W9RFr3BKVmGc1AD2LHNHYSER3L9NhUR1AgMBAAECggEAJWxwnyGCqcnbRmUY9rjC1GuFpWyhrlG0vUBQoXUrk7E8SkIE+rO9kIjfLbVdFCUnEkwQ4k3xt/HNnVS2vckHJaVdxoQbZx/9u/F4WuPTydrSKNOl/1frQwdusMkuiKrinDYXui8e+cLfgJOvdzzeKt9CeSQFSw+ItbNQwpMZk2rnho6iTMPXiiKj6pfec7I2miNUFHQEWt698fFaLzmKc/qSTAmlBQyiiFQNsP1dieMXboV23gLaH4tVwoRsVgM6V6HAyhIbyNHzqGRXJB6uasytnrcSBLb646WepLnskpgBg+VZjBgE3r7PMoJ7raQBViD9Zyz4DVGZbzB315cVwQKBgQDLyE9GyfB4vqgj863puVjlgnhBFmcZops7yI469UuwGd5WQ9tErn9Tx0LrSk8/PQIkOAHwit8F2UNlQEjq1HWOXWjI0wu67okOs8ax8a5gOIistBKfezK08SyIy2HXi9dKU673pasx5vamDhpm3wis3LP3/KLhrw0Wfjhy+bOF0QKBgQDnihtUXWW4MBbn5dMeUFTKefgw/kmxnTc9FyR9YJDBJ0b4vOsi6I0HuuQzOCFS3qXLdmlmkhfGk8089fBWAQ8rlQZUvMl9XyX3T7EEL8kIKUpnAS1o1jzb/ls1RU5735L/ngSzr0V5fT7Da74WSXhRk3esUkZserpLx0JbXtMpZQKBgQCWrGf5dkyoaogV9RHtE49oO1zA+1iF+tX+kR6g90fcUHQ1onyYvtEEV/vhzxLjNi/EKek9OuEGCQus7Kg9gZPeDLDydCFjOQX76e8LGSCOop5j2809QDFQ2lXMW1zfq9UmbtOa5lK7VgOe6iSZVWWrspAa1yBz8COkMvV4Baq4UQKBgCDuQo7QLcxxgoB+7nTsRfL6P/Nv5zlMu/ODXBw85LmkBXMRI3w2iQBlc1lZjVvE8N2sPLdq5djHYrRd4k3JHsg7DMh2hU3Af5zaB7optbTkcoGN6FB1z/gWCBDeh5gUp0qVxeNsdTwfNRMEOufekS9BAw9OMFfzaJWohGaMaQoFAoGBAMuwwMYAhUuMcAHuhzy52/KBYcSLcqigsrrQzgdj3x8X/CZuFvez1ErBbgn+IjVgx3teZfRVzsvblEOo4yrohkMPfmWTgH1AHNSTDeBnPsw3lzrk+DdWDYCiUWkgRr+tEIJF7KMreNHvR5bK7is7UFowd9FcOGnPe8aN/Ww4H+Px"
+            var publicKeyBS64 = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuE+vROTQEI3/MmQ3tbKT4s2xpIJqmMa/tK8tzSGDZJKX2uBqcD+RRXoPP2ZNtkjR6hcvbcTJMFX8QEy49rQfwXKqo4VMavObp0JRsQMmGrbMuVXMTq6J6oszY43d+/zBDh1u1d2pytLB3rPgRmrf9rddLWRVoT/ijReJdA9krrJmfog/wvmL/FABbVgJPc6XFGOjJxptE7/xQlZIsG2lA8H89vZnkJ27HtuIkcYET0OxdUy4iyJ4q+LGryg+eeYT0wBBSI3dCXrb90VMheKmkY5KPG33uxdBkl7ULSIprt/uaGq6MSsYN1vURa9wSlZhnNQA9ixzR2EhEdy/TYVEdQIDAQAB"
+            var signature64 = "ezSPgdjI4dXd20xMObVGUFnNuW9WOHfL5Aw07jDFDiwjd3zL+HdPcAyCTmG09YlvIdMbTFWFkGuCJZqcjDDbzU5x64y29xxM7zKOq75nDTiXiOsvKp5uX0/tGWseyajniz+MCbaHhJ4buhwybFXnkYMdKPzL9LrXrOtejbQ/A1OnwN2QrJY7tkCbfBGZ/2o5bxgPZWtl53gGsOXNlsjMw8CWk7i7u1UIT0OKEwKpdgnfPA+QwyOUR4lOv7Tx0Nib20vCp5nIUajMgQsRamDKzp0hZLBTibpXJ/j1vRML4JVp3Eabj5wf01PCNfKJ1Ur3S/WIDSRtdOM1FutIq8Qvjg=="
+            var privateKeyBS = this.base64ToArrayBuffer(privateKeyBS64);
+            var publicKeyBS = this.base64ToArrayBuffer(publicKeyBS64);
+            var signature = this.base64ToArrayBuffer(signature64);
+            var privateKeyBSHash = await crypto.subtle.digest('SHA-256', privateKeyBS);
+            var publicKeyBSHash = await crypto.subtle.digest('SHA-256', publicKeyBS);
+            console.log("privateKeyBSHash", privateKeyBSHash);
+            console.log("publicKeyBSHash", publicKeyBSHash);
+
+            var privateKeyForSigning = await window.crypto.subtle.importKey(
+                "pkcs8",
+                privateKeyBS,
+                {
+                    name: "RSA-PSS",
+                    hash: "SHA-256",
+                },
+                true,
+                ["sign"]
+            );
+            console.log("privateKeyForSigning", privateKeyForSigning)
+
+            var publicKey = await window.crypto.subtle.importKey("spki",
+                publicKeyBS,
+                {
+                    name: "RSA-PSS",
+                    hash: "SHA-256"
+                },
+                true,
+                ["verify"]
+            );
+            console.log("publicKey", publicKey);
+            var exportedPublicKey = await window.crypto.subtle.exportKey("spki", publicKey);
+            exportedPublicKey = this.arrayBufferToBase64(exportedPublicKey)
+            console.log("exportedPublicKey", exportedPublicKey);
+
+
+            var dataToVerify = new ArrayBuffer(3)
+            var dataToVerifyView = new DataView(dataToVerify);
+            dataToVerifyView.setUint8(0, 42)
+            dataToVerifyView.setUint8(1, 43)
+            dataToVerifyView.setUint8(2, 44)
+
+            var hash = await crypto.subtle.digest('SHA-256', dataToVerify);
+            //hash = await crypto.subtle.digest('SHA-256', hash);
+            hash = dataToVerify;
+
+            var resSign = await window.crypto.subtle.sign(
+                {
+                    name: "RSA-PSS",
+                    saltLength: 32,
+                },
+                privateKeyForSigning,
+                dataToVerify
+            );
+            console.log("resSign", resSign);      
+
+            var res = await window.crypto.subtle.verify(
+                {
+                    name: "RSA-PSS",
+                    saltLength: 32,
+                },
+                publicKey,
+                signature,
+                //resSign,
+                hash,
+            );
+
+            console.log(publicKey)
+            console.log(signature) // 
+            console.log(hash) // OK
+
+            console.log("VERIFY", res);            
+        }
     }
 }
