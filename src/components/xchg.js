@@ -1006,7 +1006,8 @@ function makeXchg() {
                 },
 
                 async processFunction(funcName, funcParameter) {
-                    return new TextEncoder().encode(Date.now().toString()).buffer;
+                    //return new TextEncoder().encode(Date.now().toString()).buffer;
+                    return this.onCall(funcName, funcParameter);
                 },
 
                 async processAuth(funcParameter) {
@@ -1035,8 +1036,6 @@ function makeXchg() {
                     var authData = parameter.slice(16);
                     if (this.onAuth !== undefined) {
                         this.onAuth(authData);
-                    } else {
-                        throw "processAuth: no auth function";
                     }
 
                     var sessionId = this.nextSessionId;
