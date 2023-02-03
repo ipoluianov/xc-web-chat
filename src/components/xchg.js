@@ -1,4 +1,4 @@
-var xchg = new makeXchg();
+let xchg = new makeXchg();
 export default xchg;
 
 import axios from "axios";
@@ -9,59 +9,58 @@ function makeXchg() {
 
     return {
         base64ToArrayBuffer(base64string) {
-            var binary_string = window.atob(base64string);
-            var len = binary_string.length;
-            var bytes = new Uint8Array(len);
-            for (var i = 0; i < len; i++) {
+            let binary_string = window.atob(base64string);
+            let len = binary_string.length;
+            let bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
                 bytes[i] = binary_string.charCodeAt(i);
             }
             return bytes.buffer;
         },
 
         binaryStringToArrayBuffer(binaryString) {
-            var len = binaryString.length;
-            var bytes = new Uint8Array(len);
-            for (var i = 0; i < len; i++) {
+            let len = binaryString.length;
+            let bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
                 bytes[i] = binaryString.charCodeAt(i);
             }
             return bytes.buffer;
         },
 
         arrayBufferToBase64(buffer) {
-            var binary = "";
-            var bytes = new Uint8Array(buffer);
-            var len = bytes.byteLength;
-            for (var i = 0; i < len; i++) {
+            let binary = "";
+            let bytes = new Uint8Array(buffer);
+            let len = bytes.byteLength;
+            for (let i = 0; i < len; i++) {
                 binary += String.fromCharCode(bytes[i]);
             }
             return window.btoa(binary);
         },
 
-
         arrayBufferToBinaryString(arrayBuffer) {
-            var binaryString = "";
-            var bytes = new Uint8Array(arrayBuffer);
-            var len = bytes.byteLength;
-            for (var i = 0; i < len; i++) {
+            let binaryString = "";
+            let bytes = new Uint8Array(arrayBuffer);
+            let len = bytes.byteLength;
+            for (let i = 0; i < len; i++) {
                 binaryString += String.fromCharCode(bytes[i]);
             }
             return binaryString;
         },
 
         async addressFromPublicKey(publicKey) {
-            var publicKeyBS = await this.rsaExportPublicKey(publicKey);
-            var publicKeyBSHash = await crypto.subtle.digest('SHA-256', publicKeyBS);
-            var addressBS = publicKeyBSHash.slice(0, 30);
+            let publicKeyBS = await this.rsaExportPublicKey(publicKey);
+            let publicKeyBSHash = await crypto.subtle.digest('SHA-256', publicKeyBS);
+            let addressBS = publicKeyBSHash.slice(0, 30);
             return this.addressBSToAddress32(addressBS);
         },
 
         addressToAddressBS(address) {
-            var addressBS = xchg.decode32(address)
+            let addressBS = xchg.decode32(address)
             return this.binaryStringToArrayBuffer(addressBS);
         },
 
         addressBSToAddress32(addressBS) {
-            var address32 = xchg.encode32(this.arrayBufferToBinaryString(addressBS))
+            let address32 = xchg.encode32(this.arrayBufferToBinaryString(addressBS))
             return "#" + address32.toLowerCase();
         },
 
@@ -70,12 +69,12 @@ function makeXchg() {
                 return new ArrayBuffer(30);
             }
             address32 = address32.replaceAll("#", "")
-            var addressBinaryString = xchg.decode32(address32)
+            let addressBinaryString = xchg.decode32(address32)
             return this.binaryStringToArrayBuffer(addressBinaryString);
         },
 
         async rsaEncrypt(arrayBufferToEncrypt, publicKey) {
-            var res = await window.crypto.subtle.encrypt(
+            let res = await window.crypto.subtle.encrypt(
                 {
                     name: "RSA-OAEP",
                 },
@@ -86,7 +85,7 @@ function makeXchg() {
         },
 
         async rsaDecrypt(arrayBufferEncrypted, privateKey) {
-            var res = await window.crypto.subtle.decrypt(
+            let res = await window.crypto.subtle.decrypt(
                 {
                     name: "RSA-OAEP",
                 },
@@ -96,9 +95,9 @@ function makeXchg() {
             return res;
         },
 
-        async rsaSign(arrayBufferEncrypted, privateKey, publicKey) {
-            var exportedPrivateKey = await window.crypto.subtle.exportKey("pkcs8", privateKey);
-            var privateKeyForSigning = await window.crypto.subtle.importKey(
+        async rsaSign(arrayBufferEncrypted, privateKey) {
+            let exportedPrivateKey = await window.crypto.subtle.exportKey("pkcs8", privateKey);
+            let privateKeyForSigning = await window.crypto.subtle.importKey(
                 "pkcs8",
                 exportedPrivateKey,
                 {
@@ -110,7 +109,7 @@ function makeXchg() {
             );
 
 
-            var res = await window.crypto.subtle.sign(
+            let res = await window.crypto.subtle.sign(
                 {
                     name: "RSA-PSS",
                     saltLength: 32,
@@ -123,8 +122,8 @@ function makeXchg() {
         },
 
         async rsaVerify(dataToVerify, signature, publicKey) {
-            var exportedPublicKey = await window.crypto.subtle.exportKey("spki", publicKey);
-            var publicKeyForVerify = await window.crypto.subtle.importKey(
+            let exportedPublicKey = await window.crypto.subtle.exportKey("spki", publicKey);
+            let publicKeyForVerify = await window.crypto.subtle.importKey(
                 "spki",
                 exportedPublicKey,
                 {
@@ -137,7 +136,7 @@ function makeXchg() {
 
             //console.log("Verify", publicKeyForVerify, signature, dataToVerify)
 
-            var res = await window.crypto.subtle.verify(
+            let res = await window.crypto.subtle.verify(
                 {
                     name: "RSA-PSS",
                     saltLength: 32,
@@ -154,7 +153,7 @@ function makeXchg() {
 
         async aesEncrypt(arrayBufferToEncrypt, aesKey) {
 
-            var aesKeyNative = await window.crypto.subtle.importKey("raw", aesKey,
+            let aesKeyNative = await window.crypto.subtle.importKey("raw", aesKey,
                 {
                     name: "AES-GCM",
                 },
@@ -162,7 +161,7 @@ function makeXchg() {
                 ["encrypt", "decrypt"]);
 
             const iv = window.crypto.getRandomValues(new Uint8Array(12));
-            var res = await window.crypto.subtle.encrypt(
+            let res = await window.crypto.subtle.encrypt(
                 {
                     name: "AES-GCM",
                     length: 256,
@@ -172,15 +171,15 @@ function makeXchg() {
                 arrayBufferToEncrypt
             );
 
-            var vRes = new DataView(res);
+            let vRes = new DataView(res);
 
-            var result = new ArrayBuffer(iv.length + vRes.buffer.byteLength);
+            let result = new ArrayBuffer(iv.length + vRes.buffer.byteLength);
 
-            var v = new DataView(result);
-            for (var i = 0; i < iv.length; i++) {
+            let v = new DataView(result);
+            for (let i = 0; i < iv.length; i++) {
                 v.setUint8(i, iv.at(i))
             }
-            for (var i = 0; i < vRes.buffer.byteLength; i++) {
+            for (let i = 0; i < vRes.buffer.byteLength; i++) {
                 v.setUint8(i + iv.length, vRes.getUint8(i))
             }
 
@@ -188,7 +187,7 @@ function makeXchg() {
         },
 
         async aesDecrypt(arrayBufferEncrypted, aesKey) {
-            var aesKeyNative = await window.crypto.subtle.importKey("raw", aesKey,
+            let aesKeyNative = await window.crypto.subtle.importKey("raw", aesKey,
                 {
                     name: "AES-GCM",
                 },
@@ -196,10 +195,10 @@ function makeXchg() {
                 ["encrypt", "decrypt"]);
 
 
-            var bs = new Uint8Array(arrayBufferEncrypted);
-            var iv = bs.subarray(0, 12);
-            var ch = bs.subarray(12);
-            var res = await window.crypto.subtle.decrypt(
+            let bs = new Uint8Array(arrayBufferEncrypted);
+            let iv = bs.subarray(0, 12);
+            let ch = bs.subarray(12);
+            let res = await window.crypto.subtle.decrypt(
                 {
                     name: "AES-GCM",
                     length: 256,
@@ -212,12 +211,12 @@ function makeXchg() {
         },
 
         async rsaExportPublicKey(publicKey) {
-            var exportedPublicKey = await window.crypto.subtle.exportKey("spki", publicKey);
+            let exportedPublicKey = await window.crypto.subtle.exportKey("spki", publicKey);
             return exportedPublicKey;
         },
 
         async rsaImportPublicKey(publicKeyBA) {
-            var publicKey = await window.crypto.subtle.importKey("spki",
+            let publicKey = await window.crypto.subtle.importKey("spki",
                 publicKeyBA,
                 {
                     name: "RSA-OAEP",
@@ -230,7 +229,7 @@ function makeXchg() {
         },
 
         async generateRSAKeyPair() {
-            var keyPair = await window.crypto.subtle.generateKey(
+            let keyPair = await window.crypto.subtle.generateKey(
                 {
                     name: "RSA-OAEP",
                     modulusLength: 2048,
@@ -257,19 +256,19 @@ function makeXchg() {
         async pack(baData) {
             const zip = new JSZip();
             zip.file("data", baData);
-            var content = await zip.generateAsync({ type: "arrayBuffer" });
+            let content = await zip.generateAsync({ type: "arrayBuffer" });
             return content
         },
 
         async unpack(baZIP) {
-            //var baZIP = this.base64ToArrayBuffer(zip64);
-            var zip = await JSZip.loadAsync(baZIP);
-            var content = await zip.files["data"].async('arrayBuffer')
+            //let baZIP = this.base64ToArrayBuffer(zip64);
+            let zip = await JSZip.loadAsync(baZIP);
+            let content = await zip.files["data"].async('arrayBuffer')
             return content;
         },
 
         makeTransaction() {
-            var t = {
+            let t = {
                 length: 0,
                 crc: 0,
                 frameType: 0,
@@ -284,27 +283,27 @@ function makeXchg() {
                 receivedFrames: [],
 
                 serialize() {
-                    var result = new ArrayBuffer(128 + this.data.byteLength);
-                    var view = new DataView(result);
+                    let result = new ArrayBuffer(128 + this.data.byteLength);
+                    let view = new DataView(result);
                     view.setUint32(0, 128 + this.data.byteLength, true);
                     view.setUint8(8, this.frameType);
                     view.setBigUint64(16, BigInt(this.transactionId), true);
                     view.setBigUint64(24, BigInt(this.sessionId), true);
                     view.setUint32(32, this.offset, true);
                     view.setUint32(36, this.totalSize, true);
-                    var srcAddressBS = xchg.address32ToAddressBS(this.srcAddress)
-                    var srcAddressBSView = new DataView(srcAddressBS);
-                    for (var i = 0; i < srcAddressBS.byteLength; i++) {
+                    let srcAddressBS = xchg.address32ToAddressBS(this.srcAddress)
+                    let srcAddressBSView = new DataView(srcAddressBS);
+                    for (let i = 0; i < srcAddressBS.byteLength; i++) {
                         view.setUint8(40 + i, srcAddressBSView.getUint8(i));
                     }
-                    var destAddressBS = xchg.address32ToAddressBS(this.destAddress)
-                    var destAddressBSView = new DataView(destAddressBS);
-                    for (var i = 0; i < destAddressBS.byteLength; i++) {
+                    let destAddressBS = xchg.address32ToAddressBS(this.destAddress)
+                    let destAddressBSView = new DataView(destAddressBS);
+                    for (let i = 0; i < destAddressBS.byteLength; i++) {
                         view.setUint8(70 + i, destAddressBSView.getUint8(i));
                     }
 
-                    var dataView = new DataView(this.data);
-                    for (var i = 0; i < this.data.byteLength; i++) {
+                    let dataView = new DataView(this.data);
+                    for (let i = 0; i < this.data.byteLength; i++) {
                         view.setUint8(128 + i, dataView.getUint8(i));
                     }
                     return result;
@@ -312,9 +311,9 @@ function makeXchg() {
 
                 appendReceivedData(transaction) {
                     if (this.receivedFrames.length < 1000) {
-                        var found = false;
-                        for (var i = 0; i < this.receivedFrames.length; i++) {
-                            var tr = this.receivedFrames[i];
+                        let found = false;
+                        for (let i = 0; i < this.receivedFrames.length; i++) {
+                            let tr = this.receivedFrames[i];
                             if (tr.offset == transaction.offset) {
                                 found = true;
                                 break;
@@ -326,16 +325,16 @@ function makeXchg() {
                         }
                     }
 
-                    var receivedDataLen = 0;
-                    for (var i = 0; i < this.receivedFrames.length; i++) {
-                        var tr = this.receivedFrames[i];
+                    let receivedDataLen = 0;
+                    for (let i = 0; i < this.receivedFrames.length; i++) {
+                        let tr = this.receivedFrames[i];
                         receivedDataLen += tr.data.byteLength;
                     }
 
                     if (receivedDataLen == transaction.totalSize) {
                         this.result = new ArrayBuffer(transaction.totalSize);
-                        for (var i = 0; i < this.receivedFrames.length; i++) {
-                            var tr = this.receivedFrames[i];
+                        for (let i = 0; i < this.receivedFrames.length; i++) {
+                            let tr = this.receivedFrames[i];
                             xchg.copyBA(this.result, tr.offset, tr.data);
                         }
                         //console.log("this.complete = true;");
@@ -347,7 +346,7 @@ function makeXchg() {
         },
 
         makeNonces(count) {
-            var ns = new ArrayBuffer(count * 16);
+            let ns = new ArrayBuffer(count * 16);
             return {
                 nonces: ns,
                 noncesCount: count,
@@ -355,22 +354,22 @@ function makeXchg() {
                 complexity: 0,
                 async fillNonce(index) {
                     if (index >= 0 && index < this.noncesCount) {
-                        var view = new DataView(this.nonces);
+                        let view = new DataView(this.nonces);
                         view.setUint32(index * 16, index, true);
                         view.setUint8(index * 16 + 4, this.complexity);
                         const randomArray = new Uint8Array(11);
                         await crypto.getRandomValues(randomArray);
-                        for (var i = 0; i < 11; i++) {
+                        for (let i = 0; i < 11; i++) {
                             view.setUint8(5 + i, randomArray[i]);
                         }
                     }
                 },
                 async next() {
                     await this.fillNonce(this.currentIndex);
-                    var result = new ArrayBuffer(16);
-                    var resultView = new DataView(result);
-                    var view = new DataView(this.nonces);
-                    for (var i = 0; i < 16; i++) {
+                    let result = new ArrayBuffer(16);
+                    let resultView = new DataView(result);
+                    let view = new DataView(this.nonces);
+                    for (let i = 0; i < 16; i++) {
                         resultView.setUint8(i, view.getUint8(this.currentIndex * 16 + i), true);
                     }
                     this.currentIndex++;
@@ -383,15 +382,15 @@ function makeXchg() {
                     if (nonce.byteLength != 16) {
                         return false;
                     }
-                    var view = new DataView(nonce);
-                    var index = view.getUint32(0, true);
+                    let view = new DataView(nonce);
+                    let index = view.getUint32(0, true);
                     if (index < 0 || index >= this.noncesCount) {
                         return false;
                     }
 
-                    var viewNonces = new DataView(this.nonces);
+                    let viewNonces = new DataView(this.nonces);
 
-                    for (var i = 0; i < 16; i++) {
+                    for (let i = 0; i < 16; i++) {
                         if (view.getUint8(i) != viewNonces.getUint8(index * 16 + i)) {
                             return false;
                         }
@@ -409,12 +408,12 @@ function makeXchg() {
             if (srcOffsetEnd === undefined) {
                 srcOffsetEnd = srcBA.byteLength;
             }
-            var destView = new DataView(destBA);
-            var srcView = new DataView(srcBA);
-            var size = srcOffsetEnd - srcOffsetBegin;
-            for (var i = 0; i < size; i++) {
-                var srcOffset = srcOffsetBegin + i;
-                var targetOffset = destOffset + i;
+            let destView = new DataView(destBA);
+            let srcView = new DataView(srcBA);
+            let size = srcOffsetEnd - srcOffsetBegin;
+            for (let i = 0; i < size; i++) {
+                let srcOffset = srcOffsetBegin + i;
+                let targetOffset = destOffset + i;
                 if (targetOffset >= 0 && targetOffset < destBA.byteLength) {
                     destView.setUint8(targetOffset, srcView.getUint8(srcOffset));
                 }
@@ -422,12 +421,12 @@ function makeXchg() {
         },
 
         makeSnakeCounter(size, initValue) {
-            var initData = new ArrayBuffer(size);
-            var initDataView = new DataView(initData);
-            for (var i = 0; i < size; i++) {
+            let initData = new ArrayBuffer(size);
+            let initDataView = new DataView(initData);
+            for (let i = 0; i < size; i++) {
                 initDataView.setUint8(i, 1);
             }
-            var result = {
+            let result = {
                 size: size,
                 lastProcessed: BigInt(-1),
                 data: initData,
@@ -438,28 +437,28 @@ function makeXchg() {
                     }
 
                     if (counter > this.lastProcessed) {
-                        var shiftRange = counter - this.lastProcessed;
-                        var dataView = new DataView(this.data);
-                        var newData = new ArrayBuffer(this.size);
-                        var newDataView = new DataView(newData);
-                        for (var i = 0; i < this.size; i++) {
-                            var b = 0;
-                            var oldAddressOfCell = BigInt(i) - shiftRange;
+                        let shiftRange = counter - this.lastProcessed;
+                        let dataView = new DataView(this.data);
+                        let newData = new ArrayBuffer(this.size);
+                        let newDataView = new DataView(newData);
+                        for (let i = 0; i < this.size; i++) {
+                            let b = 0;
+                            let oldAddressOfCell = BigInt(i) - shiftRange;
                             if (oldAddressOfCell >= 0 && oldAddressOfCell < this.size) {
                                 b = dataView.getUint8(Number(oldAddressOfCell));
                             }
                             newDataView.setUint8(i, b);
                         }
                         this.data = newData;
-                        var dataViewN = new DataView(this.data);
+                        let dataViewN = new DataView(this.data);
                         dataViewN.setUint8(0, 1);
                         this.lastProcessed = counter;
                         return true;
                     }
 
-                    var index = this.lastProcessed - counter;
+                    let index = this.lastProcessed - counter;
                     if (index >= 0 && index < this.size) {
-                        var dataView = new DataView(this.data);
+                        let dataView = new DataView(this.data);
                         if (dataView.getUint8(Number(index)) == 0) {
                             dataView.setUint8(this.lastProcessed - counter, 1);
                             return true;
@@ -476,12 +475,12 @@ function makeXchg() {
         base32a: "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567",
         base32pad: "=",
         encode32(s) {
-            var a = this.base32a;
-            var pad = this.base32pad;
-            var len = s.length;
-            var o = "";
-            var w, c, r = 0, sh = 0; // word, character, remainder, shift
-            for (var i = 0; i < len; i += 5) {
+            let a = this.base32a;
+            let pad = this.base32pad;
+            let len = s.length;
+            let o = "";
+            let w, c, r = 0, sh = 0; // word, character, remainder, shift
+            for (let i = 0; i < len; i += 5) {
                 // mask top 5 bits
                 c = s.charCodeAt(i);
                 w = 0xf8 & c;
@@ -532,7 +531,7 @@ function makeXchg() {
             if (sh != 0) { o += a.charAt(r << sh); }
             // Calculate length of pad by getting the 
             // number of words to reach an 8th octet.
-            var padlen = 8 - (o.length % 8);
+            let padlen = 8 - (o.length % 8);
             // modulus 
             if (padlen == 8) { return o; }
             if (padlen == 1) { return o + pad; }
@@ -543,13 +542,13 @@ function makeXchg() {
             console.log('padlen:' + padlen + ' ,r:' + r + ' ,sh:' + sh + ', w:' + w);
         },
         decode32(s) {
-            var len = s.length;
-            var apad = this.base32a + this.base32pad;
-            var v, x, r = 0, bits = 0, c, o = '';
+            let len = s.length;
+            let apad = this.base32a + this.base32pad;
+            let v, x = 0, bits = 0, c, o = '';
 
             s = s.toUpperCase();
 
-            for (var i = 0; i < len; i += 1) {
+            for (let i = 0; i < len; i += 1) {
                 v = apad.indexOf(s.charAt(i));
                 if (v >= 0 && v < 32) {
                     x = (x << 5) | v;
@@ -574,31 +573,31 @@ function makeXchg() {
         },
 
         async getNodesByAddress(network, address) {
-            var result = [];
+            let result = [];
 
             if (address == undefined) {
                 return [];
             }
 
-            //var network = await xchg.makeNetwork();
+            //let network = await xchg.makeNetwork();
             //console.log("Network", network);
 
 
             address = address.replaceAll("#", "").toLowerCase();
-            var addressBA = new TextEncoder().encode(address);
-            var addressBAHash = await crypto.subtle.digest('SHA-256', addressBA);
-            var addressBAHashHex = xchg.buf2hex(addressBAHash);
+            let addressBA = new TextEncoder().encode(address);
+            let addressBAHash = await crypto.subtle.digest('SHA-256', addressBA);
+            let addressBAHashHex = xchg.buf2hex(addressBAHash);
 
-            var preferredRange = undefined
-            var preferredRangeScores = 0
+            let preferredRange = undefined
+            let preferredRangeScores = 0
 
-            for (var i = 0; i < network.ranges.length && i < addressBAHashHex.length; i++) {
-                var range = network.ranges[i];
+            for (let i = 0; i < network.ranges.length && i < addressBAHashHex.length; i++) {
+                let range = network.ranges[i];
                 //console.log("range", range);
-                var rangeScores = 0;
-                for (var cIndex = 0; cIndex < range.prefix.length; cIndex++) {
-                    var chInRange = range.prefix[cIndex];
-                    var chInAddressBAHashHex = addressBAHashHex[cIndex];
+                let rangeScores = 0;
+                for (let cIndex = 0; cIndex < range.prefix.length; cIndex++) {
+                    let chInRange = range.prefix[cIndex];
+                    let chInAddressBAHashHex = addressBAHashHex[cIndex];
                     if (chInRange == chInAddressBAHashHex) {
                         rangeScores++;
                     }
@@ -611,7 +610,7 @@ function makeXchg() {
             }
 
             if (preferredRange !== undefined) {
-                for (var i = 0; i < preferredRange.hosts.length; i++) {
+                for (let i = 0; i < preferredRange.hosts.length; i++) {
                     result.push(preferredRange.hosts[i].address);
                 }
             }
@@ -625,6 +624,14 @@ function makeXchg() {
                 .join('');
         },
 
+        makeXPeerStat() {
+            return {
+                R_count: 0,
+                W_count: 0,
+                processedFrames: 0,
+            };
+        },
+
         makeXPeer() {
             return {
                 keyPair: {},
@@ -636,6 +643,7 @@ function makeXchg() {
                 nextSessionId: 1,
                 routers: {},
                 network: undefined,
+                stat: this.makeXPeerStat(),
                 async start() {
                     this.keyPair = await xchg.generateRSAKeyPair();
                     this.localAddress = await xchg.addressFromPublicKey(this.keyPair.publicKey);
@@ -646,11 +654,11 @@ function makeXchg() {
                     this.network = await xchg.makeNetwork();
                     console.log("Network", this.network);
 
-                    var nodes = await xchg.getNodesByAddress(this.network, "#3xk6hf4jegiurclldhl74ddf2pqhrsozr5lvhavs6phr4uku");
+                    let nodes = await xchg.getNodesByAddress(this.network, "#3xk6hf4jegiurclldhl74ddf2pqhrsozr5lvhavs6phr4uku");
 
-                    for (var i = 0; i < nodes.length; i++) {
-                        var addr = nodes[i];
-                        var peerHttp = xchg.makePeerHttp(addr, this, this.localAddress);
+                    for (let i = 0; i < nodes.length; i++) {
+                        let addr = nodes[i];
+                        let peerHttp = xchg.makePeerHttp(addr, this, this.localAddress, this.stat);
                         this.routers[addr] = peerHttp;
                         peerHttp.start();
                     }
@@ -661,6 +669,14 @@ function makeXchg() {
                 backgroundWorker(ctx) {
                     ctx.purgeSessions();
                 },
+                currentRouters() {
+                    let res = "";
+                    for (let r in this.routers) {
+                        res += r;
+                        res += " "
+                    }
+                    return res;
+                },
                 async call(address, authData, func, data) {
                     if (address.length != 49) {
                         throw "wrong address";
@@ -668,7 +684,7 @@ function makeXchg() {
 
                     console.log("***************authData", authData);
 
-                    var remotePeer
+                    let remotePeer
                     if (this.remotePeers[address] != undefined) {
                         remotePeer = this.remotePeers[address];
                     } else {
@@ -682,9 +698,9 @@ function makeXchg() {
 
                 lastPurgeSessionsDT: 0,
                 async purgeSessions() {
-                    var now = Date.now();
+                    let now = Date.now();
                     if (now - this.lastPurgeSessionsDT > 5 * 60 * 1000) {
-                        var found = true;
+                        let found = true;
                         while (found) {
                             found = false;
                             for (const [key, value] of Object.entries(this.sessions)) {
@@ -700,7 +716,9 @@ function makeXchg() {
                     }
                 },
                 async processFrame(frame) {
-                    var t = this.parseTransaction(frame);
+                    this.stat.processedFrames++;
+
+                    let t = this.parseTransaction(frame);
                     console.log("process frame", t);
                     try {
                         if (t.frameType == 0x10) {
@@ -722,11 +740,11 @@ function makeXchg() {
                 async processFrame10(t) {
 
                     // Remove old incoming transactions
-                    var foundForDelete = true;
+                    let foundForDelete = true;
                     while (foundForDelete) {
                         foundForDelete = false;
                         for (const trCode in this.incomingTransactions) {
-                            var incomingTransaction = this.incomingTransactions[trCode]
+                            let incomingTransaction = this.incomingTransactions[trCode]
                             if (Date.now() - incomingTransaction.beginDT > 10000) {
                                 delete this.incomingTransactions[trCode];
                                 foundForDelete = true;
@@ -735,8 +753,8 @@ function makeXchg() {
                         }
                     }
 
-                    var trCode = t.srcAddress + "/" + t.transactionId;
-                    var incomingTransaction = this.incomingTransactions[trCode];
+                    let trCode = t.srcAddress + "/" + t.transactionId;
+                    let incomingTransaction = this.incomingTransactions[trCode];
                     if (incomingTransaction == undefined) {
                         incomingTransaction = xchg.makeTransaction();
                         incomingTransaction.beginDT = Date.now();
@@ -764,9 +782,9 @@ function makeXchg() {
                     delete this.incomingTransactions[trCode];
 
 
-                    var response = await this.onEdgeReceivedCall(incomingTransaction.sessionId, incomingTransaction.data);
+                    let response = await this.onEdgeReceivedCall(incomingTransaction.sessionId, incomingTransaction.data);
                     if (response != undefined) {
-                        var trResponse = xchg.makeTransaction();
+                        let trResponse = xchg.makeTransaction();
                         trResponse.frameType = 0x11;
                         trResponse.transactionId = incomingTransaction.transactionId;
                         trResponse.sessionId = incomingTransaction.sessionId;
@@ -776,16 +794,16 @@ function makeXchg() {
                         trResponse.destAddress = incomingTransaction.srcAddress;
                         trResponse.data = response;
 
-                        var offset = 0;
-                        var blockSize = 1024;
+                        let offset = 0;
+                        let blockSize = 1024;
                         while (offset < trResponse.data.byteLength) {
-                            var currentBlockSize = blockSize;
-                            var restDataLen = trResponse.data.length - offset;
+                            let currentBlockSize = blockSize;
+                            let restDataLen = trResponse.data.length - offset;
                             if (restDataLen < currentBlockSize) {
                                 currentBlockSize = restDataLen;
                             }
 
-                            var trBlock = xchg.makeTransaction();
+                            let trBlock = xchg.makeTransaction();
                             trBlock.frameType = 0x11;
                             trBlock.transactionId = trResponse.transactionId;
                             trBlock.sessionId = trResponse.sessionId;
@@ -795,7 +813,7 @@ function makeXchg() {
                             trBlock.destAddress = trResponse.destAddress;
                             trBlock.data = trResponse.data.slice(offset, offset + currentBlockSize);
 
-                            var responseFrameBlock = trBlock.serialize()
+                            let responseFrameBlock = trBlock.serialize()
                             await this.sendFrame(trBlock.destAddress, responseFrameBlock);
                             offset += currentBlockSize;
                         }
@@ -803,7 +821,7 @@ function makeXchg() {
 
                 },
                 processFrame11(t) {
-                    var remotePeer = this.remotePeers[t.srcAddress];
+                    let remotePeer = this.remotePeers[t.srcAddress];
                     if (remotePeer == undefined) {
                         console.log("processFrame11 - peer not found", t.srcAddress, this.remotePeers)
                         return
@@ -815,23 +833,23 @@ function makeXchg() {
                         return
                     }
 
-                    var nonce = t.data.slice(0, 16)
-                    var nonceHash = await crypto.subtle.digest('SHA-256', nonce);
-                    var addressStringBytes = t.data.slice(16);
-                    var address = new TextDecoder().decode(addressStringBytes);
+                    let nonce = t.data.slice(0, 16)
+                    //let nonceHash = await crypto.subtle.digest('SHA-256', nonce);
+                    let addressStringBytes = t.data.slice(16);
+                    let address = new TextDecoder().decode(addressStringBytes);
                     if (address !== this.localAddress) {
                         return
                     }
 
-                    var publicKeyBS = await xchg.rsaExportPublicKey(this.keyPair.publicKey);
-                    var signature = await xchg.rsaSign(nonce, this.keyPair.privateKey, this.keyPair.publicKey);
+                    let publicKeyBS = await xchg.rsaExportPublicKey(this.keyPair.publicKey);
+                    let signature = await xchg.rsaSign(nonce, this.keyPair.privateKey);
 
-                    var response = new ArrayBuffer(16 + 256 + publicKeyBS.byteLength);
+                    let response = new ArrayBuffer(16 + 256 + publicKeyBS.byteLength);
                     xchg.copyBA(response, 0, nonce);
                     xchg.copyBA(response, 16, signature);
                     xchg.copyBA(response, 16 + 256, publicKeyBS);
 
-                    var trResponse = xchg.makeTransaction();
+                    let trResponse = xchg.makeTransaction();
                     trResponse.frameType = 0x21;
                     trResponse.transactionId = 0;
                     trResponse.sessionId = 0;
@@ -841,7 +859,7 @@ function makeXchg() {
                     trResponse.destAddress = t.srcAddress;
                     trResponse.data = response;
 
-                    var frResponse = trResponse.serialize();
+                    let frResponse = trResponse.serialize();
                     this.sendFrame(trResponse.destAddress, frResponse);
                 },
                 async processFrame21(t) {
@@ -852,24 +870,24 @@ function makeXchg() {
                         return
                     }
 
-                    var receivedNonce = t.data.slice(0, 16);
-                    var receivedPublicKeyBS = t.data.slice(16 + 256);
-                    var receivedPublicKey = {}
+                    let receivedNonce = t.data.slice(0, 16);
+                    let receivedPublicKeyBS = t.data.slice(16 + 256);
+                    let receivedPublicKey = {}
                     try {
                         receivedPublicKey = await xchg.rsaImportPublicKey(receivedPublicKeyBS);
                     }
                     catch (ex) {
                         throw "cannot import remote public key";
                     }
-                    var receivedAddress = await xchg.addressFromPublicKey(receivedPublicKey);
-                    var remotePeer = this.remotePeers[receivedAddress];
+                    let receivedAddress = await xchg.addressFromPublicKey(receivedPublicKey);
+                    let remotePeer = this.remotePeers[receivedAddress];
                     if (remotePeer === undefined) {
                         return
                     }
 
-                    var nonceHash = await crypto.subtle.digest('SHA-256', receivedNonce);
-                    var signature = t.data.slice(16, 16 + 256);
-                    var verifyRes = await xchg.rsaVerify(receivedNonce, signature, receivedPublicKey);
+                    //let nonceHash = await crypto.subtle.digest('SHA-256', receivedNonce);
+                    let signature = t.data.slice(16, 16 + 256);
+                    let verifyRes = await xchg.rsaVerify(receivedNonce, signature, receivedPublicKey);
                     if (verifyRes !== true) {
                         console.log("verifyRes", verifyRes);
                         throw "signature verify error";
@@ -878,8 +896,8 @@ function makeXchg() {
                     remotePeer.processFrame21(receivedNonce, receivedPublicKey);
                 },
                 parseTransaction(frame) {
-                    var t = {}
-                    var view = new DataView(frame)
+                    let t = {}
+                    let view = new DataView(frame)
                     t.length = view.getUint32(0, true)
                     t.crc = view.getUint32(4, true)
                     t.frameType = view.getInt8(8);
@@ -904,19 +922,20 @@ function makeXchg() {
                 },
 
                 async sendFrame(destAddress, frame) {
-                    var frame64 = xchg.arrayBufferToBase64(frame);
+                    this.stat.W_count++;
+                    let frame64 = xchg.arrayBufferToBase64(frame);
                     const formData = new FormData();
                     formData.append('d', frame64);
-                    var nodes = await xchg.getNodesByAddress(this.network, destAddress);
-                    for (var i = 0; i < nodes.length; i++) {
-                        var node = nodes[i];
+                    let nodes = await xchg.getNodesByAddress(this.network, destAddress);
+                    for (let i = 0; i < nodes.length; i++) {
+                        let node = nodes[i];
                         this.sendFrameToRouter(node, formData);
                     }
                 },
 
                 async onEdgeReceivedCall(sessionId, data) {
-                    var encrypted = false;
-                    var session = undefined;
+                    let encrypted = false;
+                    let session = undefined;
                     if (sessionId != 0) {
                         session = this.sessions[sessionId]
                     }
@@ -933,8 +952,8 @@ function makeXchg() {
                         }
 
                         encrypted = true;
-                        var dataView = new DataView(data);
-                        var callNonce = dataView.getBigUint64(0, true);
+                        let dataView = new DataView(data);
+                        let callNonce = dataView.getBigUint64(0, true);
                         if (!session.snakeCounter.testAndDeclare(callNonce)) {
                             throw "session nonce error";
                         }
@@ -947,22 +966,22 @@ function makeXchg() {
                         }
                     }
 
-                    var dataView = new DataView(data);
+                    let dataView = new DataView(data);
 
-                    var funcLen = dataView.getUint8(0);
+                    let funcLen = dataView.getUint8(0);
                     if (data.byteLength < 1 + funcLen) {
                         throw "wrong data frame len(fn)";
                     }
 
-                    var funcNameBA = data.slice(1, 1 + funcLen);
-                    var funcName = new TextDecoder().decode(funcNameBA);
-                    var funcParameter = data.slice(1 + funcLen);
+                    let funcNameBA = data.slice(1, 1 + funcLen);
+                    let funcName = new TextDecoder().decode(funcNameBA);
+                    let funcParameter = data.slice(1 + funcLen);
 
-                    var response = new ArrayBuffer(0);
+                    let response = new ArrayBuffer(0);
 
                     try {
                         if (sessionId == 0) {
-                            var processed = false;
+                            let processed = false;
                             if (funcName === "/xchg-get-nonce") {
                                 response = await this.nonces.next();
                                 processed = true;
@@ -978,8 +997,8 @@ function makeXchg() {
                         } else {
                             response = await this.processFunction(funcName, funcParameter);
                         }
-                        var responseFinal = new ArrayBuffer(1 + response.byteLength);
-                        var responseFinalView = new DataView(responseFinal);
+                        let responseFinal = new ArrayBuffer(1 + response.byteLength);
+                        let responseFinalView = new DataView(responseFinal);
                         responseFinalView.setUint8(0, 0);
                         xchg.copyBA(responseFinal, 1, response);
                         response = responseFinal;
@@ -997,9 +1016,9 @@ function makeXchg() {
                 },
 
                 async prepareErrorFrame(errorString) {
-                    var errorBA = new TextEncoder().encode(errorString).buffer;
-                    var response = new ArrayBuffer(1 + errorBA.byteLength);
-                    var responseView = new DataView(response);
+                    let errorBA = new TextEncoder().encode(errorString).buffer;
+                    let response = new ArrayBuffer(1 + errorBA.byteLength);
+                    let responseView = new DataView(response);
                     responseView.setUint8(0, 1);
                     xchg.copyBA(response, 1, errorBA);
                     return response;
@@ -1015,47 +1034,47 @@ function makeXchg() {
                         throw "processAuth: funcParameter.byteLength < 4";
                     }
 
-                    var funcParameterView = new DataView(funcParameter);
+                    let funcParameterView = new DataView(funcParameter);
 
-                    var remotePublicKeyBALen = funcParameterView.getUint32(0, true);
+                    let remotePublicKeyBALen = funcParameterView.getUint32(0, true);
                     if (funcParameter.byteLength < 4 + remotePublicKeyBALen) {
                         throw "processAuth: funcParameter.byteLength < 4+remotePublicKeyBALen";
                     }
-                    var remotePublicKeyBA = funcParameter.slice(4, 4 + remotePublicKeyBALen);
-                    var remotePublicKey = await xchg.rsaImportPublicKey(remotePublicKeyBA);
+                    let remotePublicKeyBA = funcParameter.slice(4, 4 + remotePublicKeyBALen);
+                    let remotePublicKey = await xchg.rsaImportPublicKey(remotePublicKeyBA);
 
-                    var authFrameSecret = funcParameter.slice(4 + remotePublicKeyBALen);
-                    var parameter = await xchg.rsaDecrypt(authFrameSecret, this.keyPair.privateKey);
+                    let authFrameSecret = funcParameter.slice(4 + remotePublicKeyBALen);
+                    let parameter = await xchg.rsaDecrypt(authFrameSecret, this.keyPair.privateKey);
                     if (parameter.byteLength < 16) {
                         throw "processAuth: parameter.byteLength < 16";
                     }
-                    var nonce = parameter.slice(0, 16);
+                    let nonce = parameter.slice(0, 16);
 
                     this.nonces.check(nonce);
 
-                    var authData = parameter.slice(16);
+                    let authData = parameter.slice(16);
                     if (this.onAuth !== undefined) {
                         this.onAuth(authData);
                     }
 
-                    var sessionId = this.nextSessionId;
+                    let sessionId = this.nextSessionId;
                     this.nextSessionId++;
 
-                    var session = xchg.makeSession();
+                    let session = xchg.makeSession();
                     session.id = sessionId;
                     session.lastAccessDT = Date.now();
                     session.aesKey = new ArrayBuffer(32);
-                    var aesView = new DataView(session.aesKey);
+                    let aesView = new DataView(session.aesKey);
                     const randomArray = new Uint8Array(32);
                     await crypto.getRandomValues(randomArray);
-                    for (var i = 0; i < 32; i++) {
+                    for (let i = 0; i < 32; i++) {
                         aesView.setUint8(i, randomArray[i]);
                     }
                     session.snakeCounter = xchg.makeSnakeCounter(100, 1);
                     this.sessions[sessionId] = session;
 
-                    var response = new ArrayBuffer(8 + 32);
-                    var responseView = new DataView(response);
+                    let response = new ArrayBuffer(8 + 32);
+                    let responseView = new DataView(response);
                     responseView.setBigUint64(0, BigInt(sessionId), true);
                     xchg.copyBA(response, 8, session.aesKey);
                     response = await xchg.rsaEncrypt(response, remotePublicKey);
@@ -1081,17 +1100,17 @@ function makeXchg() {
         NetworkContainerFileSignature: "signature.base64",
 
         async loadNetworkFromZip64(zip64) {
-            var zipBA = xchg.base64ToArrayBuffer(zip64)
-            var publicKeyBA = this.base64ToArrayBuffer(this.NetworkContainerPublicKey)
-            var publicKey = await this.rsaImportPublicKey(publicKeyBA)
-            var zip = await JSZip.loadAsync(zipBA);
-            var contentNetwork = await zip.files[this.NetworkContainerFileNetwork].async('arrayBuffer')
-            var contentSignature = await zip.files[this.NetworkContainerFileSignature].async('arrayBuffer')
+            let zipBA = xchg.base64ToArrayBuffer(zip64)
+            let publicKeyBA = this.base64ToArrayBuffer(this.NetworkContainerPublicKey)
+            let publicKey = await this.rsaImportPublicKey(publicKeyBA)
+            let zip = await JSZip.loadAsync(zipBA);
+            let contentNetwork = await zip.files[this.NetworkContainerFileNetwork].async('arrayBuffer')
+            let contentSignature = await zip.files[this.NetworkContainerFileSignature].async('arrayBuffer')
 
             contentSignature = new TextDecoder().decode(contentSignature)
             contentSignature = xchg.base64ToArrayBuffer(contentSignature)
 
-            var verifyResult = await this.rsaVerify(contentNetwork, contentSignature, publicKey);
+            let verifyResult = await this.rsaVerify(contentNetwork, contentSignature, publicKey);
             if (!verifyResult) {
                 throw "network verify error";
             }
@@ -1101,16 +1120,16 @@ function makeXchg() {
 
         async makeNetwork() {
             console.log("-=makeNetwork=-")
-            var network = await this.loadNetworkFromZip64(this.NetworkContainerDefault)
-            //var networks = []
-            for (var i = 0; i < network.initial_points.length; i++) {
+            let network = await this.loadNetworkFromZip64(this.NetworkContainerDefault)
+            //let networks = []
+            for (let i = 0; i < network.initial_points.length; i++) {
                 try {
-                    var sourceUrl = network.initial_points[i];
-                    console.log("sourceUrl",sourceUrl);
+                    let sourceUrl = network.initial_points[i];
+                    console.log("sourceUrl", sourceUrl);
                     const response = await axios.get(sourceUrl);
                     //console.log("RESP:", response)
                     //response = new TextDecoder().decode(response.data)
-                    var n = await this.loadNetworkFromZip64(response.data)
+                    let n = await this.loadNetworkFromZip64(response.data)
                     if (n.timestamp > network.timestamp) {
                         network = n;
                     }
@@ -1125,8 +1144,8 @@ function makeXchg() {
             //return response.data;
         },
 
-        makePeerHttp(routerHost, processor, localAddress) {
-            var peerHttp = {
+        makePeerHttp(routerHost, processor, localAddress, stat) {
+            let peerHttp = {
                 afterId: 0,
                 routerHost: routerHost,
                 processor: processor,
@@ -1142,11 +1161,11 @@ function makeXchg() {
                         throw "makeXchgrReadRequest: address is undefined";
                     }
                     address = address.replaceAll("#", "");
-                    var buffer = new ArrayBuffer(8 + 8 + 30);
-                    var bufferView = new DataView(buffer);
+                    let buffer = new ArrayBuffer(8 + 8 + 30);
+                    let bufferView = new DataView(buffer);
                     bufferView.setBigUint64(0, BigInt(this.afterId), true); // AfterId
                     bufferView.setBigUint64(8, BigInt(1024 * 1024), true); // MaxSize
-                    var addressBS = xchg.addressToAddressBS(address);
+                    let addressBS = xchg.addressToAddressBS(address);
                     if (addressBS.byteLength != 30) {
                         throw "wrong address length";
                     }
@@ -1161,11 +1180,12 @@ function makeXchg() {
                     }
 
                     this.requestXchgrReadProcessing = true;
-                    var receivedData;
+                    let receivedData;
                     try {
-                        var frame = this.makeXchgrReadRequest(address);
+                        let frame = this.makeXchgrReadRequest(address);
                         const formData = new FormData();
                         formData.append('d', frame);
+                        stat.R_count++;
                         const response = await axios.post("http://" + this.routerHost + "/api/r", formData, {
                             headers: formData.headers
                         },);
@@ -1182,20 +1202,20 @@ function makeXchg() {
                     }
 
                     // Process frames
-                    var resultBA = xchg.base64ToArrayBuffer(receivedData)
-                    var view = new DataView(resultBA);
-                    var bytes = new Uint8Array(resultBA);
-                    var lastId = view.getBigUint64(0, true);
+                    let resultBA = xchg.base64ToArrayBuffer(receivedData)
+                    let view = new DataView(resultBA);
+                    let bytes = new Uint8Array(resultBA);
+                    let lastId = view.getBigUint64(0, true);
 
                     this.afterId = Number(lastId)
-                    var offset = 8
-                    var size = view.byteLength;
+                    let offset = 8
+                    let size = view.byteLength;
                     try {
                         while (offset < size) {
                             if (offset + 128 <= size) {
-                                var frameLen = view.getUint32(offset, true);
+                                let frameLen = view.getUint32(offset, true);
                                 if (offset + frameLen <= size) {
-                                    var frame = bytes.subarray(offset, offset + frameLen);
+                                    let frame = bytes.subarray(offset, offset + frameLen);
                                     await this.processor.processFrame(frame.buffer.slice(frame.byteOffset, frame.byteOffset + frameLen));
                                 } else {
                                     break;
@@ -1237,7 +1257,7 @@ function makeXchg() {
                 stop() {
                     window.clearInterval(this.timer)
                 },
-                backgroundWorker(ctx) {
+                backgroundWorker(/*ctx*/) {
                 },
                 async call(func, data) {
                     if (this.remotePublicKey === undefined) {
@@ -1248,26 +1268,26 @@ function makeXchg() {
                         await this.auth();
                     }
 
-                    var result = await this.regularCall(func, data, this.aesKey);
+                    let result = await this.regularCall(func, data, this.aesKey);
                     return result;
                 },
                 async requestPublicKey() {
-                    var enc = new TextEncoder();
-                    var addr = this.remoteAddress
-                    var remoteAddressBS = enc.encode(addr);
-                    var remoteAddressBSView = new DataView(remoteAddressBS.buffer);
-                    var request = new ArrayBuffer(16 + remoteAddressBS.byteLength);
-                    var requestView = new DataView(request);
-                    var nonce = await this.nonces.next();
-                    var nonceView = new DataView(nonce);
-                    for (var i = 0; i < 16; i++) {
+                    let enc = new TextEncoder();
+                    let addr = this.remoteAddress
+                    let remoteAddressBS = enc.encode(addr);
+                    let remoteAddressBSView = new DataView(remoteAddressBS.buffer);
+                    let request = new ArrayBuffer(16 + remoteAddressBS.byteLength);
+                    let requestView = new DataView(request);
+                    let nonce = await this.nonces.next();
+                    let nonceView = new DataView(nonce);
+                    for (let i = 0; i < 16; i++) {
                         requestView.setUint8(i, nonceView.getUint8(i));
                     }
-                    for (var i = 0; i < remoteAddressBS.byteLength; i++) {
+                    for (let i = 0; i < remoteAddressBS.byteLength; i++) {
                         requestView.setUint8(16 + i, remoteAddressBSView.getUint8(i));
                     }
 
-                    var t = xchg.makeTransaction();
+                    let t = xchg.makeTransaction();
                     t.frameType = 0x20;
                     t.transactionId = 0;
                     t.sessionId = 0;
@@ -1276,7 +1296,7 @@ function makeXchg() {
                     t.srcAddress = this.localAddress;
                     t.destAddress = this.remoteAddress;
                     t.data = request;
-                    var frame = t.serialize()
+                    let frame = t.serialize()
 
 
                     this.sendFrame(t.destAddress, frame);
@@ -1293,13 +1313,13 @@ function makeXchg() {
                 },
 
                 async sendFrame(destAddress, frame) {
-                    var frame64 = xchg.arrayBufferToBase64(frame);
+                    let frame64 = xchg.arrayBufferToBase64(frame);
                     const formData = new FormData();
                     formData.append('d', frame64);
 
-                    var nodes = await xchg.getNodesByAddress(this.network, destAddress);
-                    for (var i = 0; i < nodes.length; i++) {
-                        var node = nodes[i];
+                    let nodes = await xchg.getNodesByAddress(this.network, destAddress);
+                    for (let i = 0; i < nodes.length; i++) {
+                        let node = nodes[i];
                         this.sendFrameToRouter(node, formData);
                     }
 
@@ -1314,7 +1334,7 @@ function makeXchg() {
 
                 async auth() {
                     // Waiting for previous auth process
-                    for (var i = 0; i < 100; i++) {
+                    for (let i = 0; i < 100; i++) {
                         if (!this.authProcessing) {
                             break;
                         }
@@ -1337,7 +1357,7 @@ function makeXchg() {
                         this.authProcessing = true;
 
                         // Waiting for public key
-                        for (var i = 0; i < 100; i++) {
+                        for (let i = 0; i < 100; i++) {
                             if (this.remotePublicKey !== undefined) {
                                 break;
                             }
@@ -1351,39 +1371,39 @@ function makeXchg() {
 
                         // Get a nonce from server to auth
                         // The nonce is used to prevent replay attack
-                        var nonce = await this.regularCall("/xchg-get-nonce", new ArrayBuffer(0), new ArrayBuffer(0));
+                        let nonce = await this.regularCall("/xchg-get-nonce", new ArrayBuffer(0), new ArrayBuffer(0));
 
                         if (nonce.byteLength != 16) {
                             throw "wrong nonce length";
                         }
 
                         // RSA-2048 public key as an ArrayBuffer
-                        var localPublicKeyBA = await xchg.rsaExportPublicKey(this.localKeys.publicKey);
+                        let localPublicKeyBA = await xchg.rsaExportPublicKey(this.localKeys.publicKey);
 
                         // This path will be encrypted with remote public key:
                         // received nonce and secret auth data
-                        var authFrameSecret = new ArrayBuffer(16 + this.authData.byteLength);
+                        let authFrameSecret = new ArrayBuffer(16 + this.authData.byteLength);
                         xchg.copyBA(authFrameSecret, 0, nonce);
                         xchg.copyBA(authFrameSecret, 16, this.authData);
 
                         console.log("sending auth data", this.authData);
 
                         // Encrypt secret data (nonce and auth data) with RSA-2048
-                        var encryptedAuthFrame = await xchg.rsaEncrypt(authFrameSecret, this.remotePublicKey);
+                        let encryptedAuthFrame = await xchg.rsaEncrypt(authFrameSecret, this.remotePublicKey);
 
                         // Prepare final auth frame
                         // [0:4] - length of local public key
                         // [4:PK_LEN] - local public key
                         // [PK_LEN:] - encrypted (RSA-2048) nonce and auth data
-                        var authFrame = new ArrayBuffer(4 + localPublicKeyBA.byteLength + encryptedAuthFrame.byteLength);
-                        var authFrameView = new DataView(authFrame);
+                        let authFrame = new ArrayBuffer(4 + localPublicKeyBA.byteLength + encryptedAuthFrame.byteLength);
+                        let authFrameView = new DataView(authFrame);
                         authFrameView.setUint32(0, localPublicKeyBA.byteLength, true);
                         xchg.copyBA(authFrame, 4, localPublicKeyBA);
                         xchg.copyBA(authFrame, 4 + localPublicKeyBA.byteLength, encryptedAuthFrame);
 
                         // --------------------------------------------------
                         // Call Auth
-                        var result = await this.regularCall("/xchg-auth", authFrame, new ArrayBuffer(0), new ArrayBuffer(0));
+                        let result = await this.regularCall("/xchg-auth", authFrame, new ArrayBuffer(0), new ArrayBuffer(0));
                         // --------------------------------------------------
 
                         if (this.localKeys === undefined) {
@@ -1405,7 +1425,7 @@ function makeXchg() {
                         }
 
                         // Get sessionId from the response
-                        var resultView = new DataView(result);
+                        let resultView = new DataView(result);
                         this.sessionId = resultView.getBigUint64(0, true);
 
                         // Get AES key of the session
@@ -1422,14 +1442,14 @@ function makeXchg() {
 
                 async regularCall(func, data, aesKey) {
                     // Prepare function name
-                    var enc = new TextEncoder();
-                    var funcBS = enc.encode(func);
+                    let enc = new TextEncoder();
+                    let funcBS = enc.encode(func);
                     funcBS = funcBS.buffer;
                     if (funcBS.byteLength > 255) {
                         throw "regularCall: func length > 255";
                     }
 
-                    var encrypted = false;
+                    let encrypted = false;
 
                     // Check local RSA keys
                     if (this.localKeys === undefined) {
@@ -1437,16 +1457,16 @@ function makeXchg() {
                     }
 
                     // Session nonce counter must be incremented everytime
-                    var sessionNonceCounter = this.sessionNonceCounter;
+                    let sessionNonceCounter = this.sessionNonceCounter;
                     this.sessionNonceCounter++;
 
                     // Prepare frame
-                    var frame = new ArrayBuffer(0);
+                    let frame = new ArrayBuffer(0);
                     if (aesKey !== undefined && aesKey.byteLength == 32) {
                         // Session is active
                         // Using AES encryption with ZIP
                         frame = new ArrayBuffer(8 + 1 + funcBS.byteLength + data.byteLength);
-                        var frameView = new DataView(frame);
+                        let frameView = new DataView(frame);
                         frameView.setBigUint64(0, BigInt(sessionNonceCounter), true);
                         frameView.setUint8(8, funcBS.byteLength);
                         xchg.copyBA(frame, 9, funcBS);
@@ -1458,14 +1478,14 @@ function makeXchg() {
                         // Session is not active
                         // Encryption is not used
                         frame = new ArrayBuffer(1 + funcBS.byteLength + data.byteLength);
-                        var frameView = new DataView(frame);
+                        let frameView = new DataView(frame);
                         frameView.setUint8(0, funcBS.byteLength);
                         xchg.copyBA(frame, 1, funcBS);
                         xchg.copyBA(frame, 1 + funcBS.byteLength, data);
                     }
 
                     // Executing transaction with response waiting
-                    var result = await this.executeTransaction(this.sessionId, frame, this.aesKey);
+                    let result = await this.executeTransaction(this.sessionId, frame, this.aesKey);
 
                     if (encrypted) {
                         // Request was encrypted with AES
@@ -1480,8 +1500,8 @@ function makeXchg() {
                         throw "result.byteLength < 1";
                     }
 
-                    var resultData = new ArrayBuffer(0);
-                    var resultView = new DataView(result);
+                    let resultData = new ArrayBuffer(0);
+                    let resultView = new DataView(result);
                     if (resultView.getUint8(0) == 0) {
                         // Success
                         resultData = new ArrayBuffer(result.byteLength - 1);
@@ -1492,7 +1512,7 @@ function makeXchg() {
                         console.log("ERROR BIT: ", result);
                         resultData = new ArrayBuffer(result.byteLength - 1);
                         xchg.copyBA(resultData, 0, result, 1);
-                        var dec = new TextDecoder();
+                        let dec = new TextDecoder();
                         throw dec.decode(resultData);
                     }
 
@@ -1500,7 +1520,7 @@ function makeXchg() {
                 },
 
                 async processFrame11(transaction) {
-                    var t = this.outgoingTransactions[transaction.transactionId];
+                    let t = this.outgoingTransactions[transaction.transactionId];
                     if (t === undefined) {
                         return
                     }
@@ -1515,10 +1535,10 @@ function makeXchg() {
                 },
 
                 async executeTransaction(sessionId, data, aesKeyOriginal) {
-                    var transactionId = this.nextTransactionId;
+                    let transactionId = this.nextTransactionId;
                     this.nextTransactionId++;
 
-                    var t = xchg.makeTransaction();
+                    let t = xchg.makeTransaction();
                     t.frameType = 0x10;
                     t.transactionId = transactionId;
                     t.sessionId = sessionId;
@@ -1530,16 +1550,16 @@ function makeXchg() {
 
                     this.outgoingTransactions[transactionId] = t;
 
-                    var offset = 0;
-                    var blockSize = 1024;
+                    let offset = 0;
+                    let blockSize = 1024;
                     while (offset < data.byteLength) {
-                        var currentBlockSize = blockSize;
-                        var restDataLen = data.byteLength - offset;
+                        let currentBlockSize = blockSize;
+                        let restDataLen = data.byteLength - offset;
                         if (restDataLen < currentBlockSize) {
                             currentBlockSize = restDataLen;
                         }
 
-                        var tBlock = xchg.makeTransaction();
+                        let tBlock = xchg.makeTransaction();
                         tBlock.frameType = 0x10;
                         tBlock.transactionId = transactionId;
                         tBlock.sessionId = sessionId;
@@ -1548,14 +1568,14 @@ function makeXchg() {
                         tBlock.data = data.slice(offset, offset + currentBlockSize);
                         tBlock.srcAddress = this.localAddress;
                         tBlock.destAddress = this.remoteAddress;
-                        var tBlockBA = tBlock.serialize();
+                        let tBlockBA = tBlock.serialize();
 
 
                         await this.sendFrame(t.destAddress, tBlockBA);
                         offset += currentBlockSize;
                     }
 
-                    for (var i = 0; i < 100; i++) {
+                    for (let i = 0; i < 100; i++) {
                         if (t.complete) {
                             delete this.outgoingTransactions[transactionId];
                             if (t.err !== undefined) {
@@ -1568,11 +1588,11 @@ function makeXchg() {
                         await xchg.sleep(10);
                     }
 
-                    var allowToResetSession = true;
+                    let allowToResetSession = true;
                     if (aesKeyOriginal.byteLength == 32 && this.aesKey.byteLength == 32) {
-                        var aesKeyOriginalView = new DataView(aesKeyOriginal);
-                        var aesKeyView = new DataView(this.aesKey);
-                        for (var i = 0; i < 32; i++) {
+                        let aesKeyOriginalView = new DataView(aesKeyOriginal);
+                        let aesKeyView = new DataView(this.aesKey);
+                        for (let i = 0; i < 32; i++) {
                             if (aesKeyView.getUint8(i) != aesKeyOriginalView.getUint8(i)) {
                                 allowToResetSession = false;
                             }
@@ -1594,18 +1614,18 @@ function makeXchg() {
         },
 
         async test11() {
-            var privateKeyBS64 = "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC4T69E5NAQjf8yZDe1spPizbGkgmqYxr+0ry3NIYNkkpfa4GpwP5FFeg8/Zk22SNHqFy9txMkwVfxATLj2tB/BcqqjhUxq85unQlGxAyYatsy5VcxOronqizNjjd37/MEOHW7V3anK0sHes+BGat/2t10tZFWhP+KNF4l0D2SusmZ+iD/C+Yv8UAFtWAk9zpcUY6MnGm0Tv/FCVkiwbaUDwfz29meQnbse24iRxgRPQ7F1TLiLInir4savKD555hPTAEFIjd0Jetv3RUyF4qaRjko8bfe7F0GSXtQtIimu3+5oaroxKxg3W9RFr3BKVmGc1AD2LHNHYSER3L9NhUR1AgMBAAECggEAJWxwnyGCqcnbRmUY9rjC1GuFpWyhrlG0vUBQoXUrk7E8SkIE+rO9kIjfLbVdFCUnEkwQ4k3xt/HNnVS2vckHJaVdxoQbZx/9u/F4WuPTydrSKNOl/1frQwdusMkuiKrinDYXui8e+cLfgJOvdzzeKt9CeSQFSw+ItbNQwpMZk2rnho6iTMPXiiKj6pfec7I2miNUFHQEWt698fFaLzmKc/qSTAmlBQyiiFQNsP1dieMXboV23gLaH4tVwoRsVgM6V6HAyhIbyNHzqGRXJB6uasytnrcSBLb646WepLnskpgBg+VZjBgE3r7PMoJ7raQBViD9Zyz4DVGZbzB315cVwQKBgQDLyE9GyfB4vqgj863puVjlgnhBFmcZops7yI469UuwGd5WQ9tErn9Tx0LrSk8/PQIkOAHwit8F2UNlQEjq1HWOXWjI0wu67okOs8ax8a5gOIistBKfezK08SyIy2HXi9dKU673pasx5vamDhpm3wis3LP3/KLhrw0Wfjhy+bOF0QKBgQDnihtUXWW4MBbn5dMeUFTKefgw/kmxnTc9FyR9YJDBJ0b4vOsi6I0HuuQzOCFS3qXLdmlmkhfGk8089fBWAQ8rlQZUvMl9XyX3T7EEL8kIKUpnAS1o1jzb/ls1RU5735L/ngSzr0V5fT7Da74WSXhRk3esUkZserpLx0JbXtMpZQKBgQCWrGf5dkyoaogV9RHtE49oO1zA+1iF+tX+kR6g90fcUHQ1onyYvtEEV/vhzxLjNi/EKek9OuEGCQus7Kg9gZPeDLDydCFjOQX76e8LGSCOop5j2809QDFQ2lXMW1zfq9UmbtOa5lK7VgOe6iSZVWWrspAa1yBz8COkMvV4Baq4UQKBgCDuQo7QLcxxgoB+7nTsRfL6P/Nv5zlMu/ODXBw85LmkBXMRI3w2iQBlc1lZjVvE8N2sPLdq5djHYrRd4k3JHsg7DMh2hU3Af5zaB7optbTkcoGN6FB1z/gWCBDeh5gUp0qVxeNsdTwfNRMEOufekS9BAw9OMFfzaJWohGaMaQoFAoGBAMuwwMYAhUuMcAHuhzy52/KBYcSLcqigsrrQzgdj3x8X/CZuFvez1ErBbgn+IjVgx3teZfRVzsvblEOo4yrohkMPfmWTgH1AHNSTDeBnPsw3lzrk+DdWDYCiUWkgRr+tEIJF7KMreNHvR5bK7is7UFowd9FcOGnPe8aN/Ww4H+Px"
-            var publicKeyBS64 = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuE+vROTQEI3/MmQ3tbKT4s2xpIJqmMa/tK8tzSGDZJKX2uBqcD+RRXoPP2ZNtkjR6hcvbcTJMFX8QEy49rQfwXKqo4VMavObp0JRsQMmGrbMuVXMTq6J6oszY43d+/zBDh1u1d2pytLB3rPgRmrf9rddLWRVoT/ijReJdA9krrJmfog/wvmL/FABbVgJPc6XFGOjJxptE7/xQlZIsG2lA8H89vZnkJ27HtuIkcYET0OxdUy4iyJ4q+LGryg+eeYT0wBBSI3dCXrb90VMheKmkY5KPG33uxdBkl7ULSIprt/uaGq6MSsYN1vURa9wSlZhnNQA9ixzR2EhEdy/TYVEdQIDAQAB"
-            var signature64 = "ezSPgdjI4dXd20xMObVGUFnNuW9WOHfL5Aw07jDFDiwjd3zL+HdPcAyCTmG09YlvIdMbTFWFkGuCJZqcjDDbzU5x64y29xxM7zKOq75nDTiXiOsvKp5uX0/tGWseyajniz+MCbaHhJ4buhwybFXnkYMdKPzL9LrXrOtejbQ/A1OnwN2QrJY7tkCbfBGZ/2o5bxgPZWtl53gGsOXNlsjMw8CWk7i7u1UIT0OKEwKpdgnfPA+QwyOUR4lOv7Tx0Nib20vCp5nIUajMgQsRamDKzp0hZLBTibpXJ/j1vRML4JVp3Eabj5wf01PCNfKJ1Ur3S/WIDSRtdOM1FutIq8Qvjg=="
-            var privateKeyBS = this.base64ToArrayBuffer(privateKeyBS64);
-            var publicKeyBS = this.base64ToArrayBuffer(publicKeyBS64);
-            var signature = this.base64ToArrayBuffer(signature64);
-            var privateKeyBSHash = await crypto.subtle.digest('SHA-256', privateKeyBS);
-            var publicKeyBSHash = await crypto.subtle.digest('SHA-256', publicKeyBS);
+            let privateKeyBS64 = "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC4T69E5NAQjf8yZDe1spPizbGkgmqYxr+0ry3NIYNkkpfa4GpwP5FFeg8/Zk22SNHqFy9txMkwVfxATLj2tB/BcqqjhUxq85unQlGxAyYatsy5VcxOronqizNjjd37/MEOHW7V3anK0sHes+BGat/2t10tZFWhP+KNF4l0D2SusmZ+iD/C+Yv8UAFtWAk9zpcUY6MnGm0Tv/FCVkiwbaUDwfz29meQnbse24iRxgRPQ7F1TLiLInir4savKD555hPTAEFIjd0Jetv3RUyF4qaRjko8bfe7F0GSXtQtIimu3+5oaroxKxg3W9RFr3BKVmGc1AD2LHNHYSER3L9NhUR1AgMBAAECggEAJWxwnyGCqcnbRmUY9rjC1GuFpWyhrlG0vUBQoXUrk7E8SkIE+rO9kIjfLbVdFCUnEkwQ4k3xt/HNnVS2vckHJaVdxoQbZx/9u/F4WuPTydrSKNOl/1frQwdusMkuiKrinDYXui8e+cLfgJOvdzzeKt9CeSQFSw+ItbNQwpMZk2rnho6iTMPXiiKj6pfec7I2miNUFHQEWt698fFaLzmKc/qSTAmlBQyiiFQNsP1dieMXboV23gLaH4tVwoRsVgM6V6HAyhIbyNHzqGRXJB6uasytnrcSBLb646WepLnskpgBg+VZjBgE3r7PMoJ7raQBViD9Zyz4DVGZbzB315cVwQKBgQDLyE9GyfB4vqgj863puVjlgnhBFmcZops7yI469UuwGd5WQ9tErn9Tx0LrSk8/PQIkOAHwit8F2UNlQEjq1HWOXWjI0wu67okOs8ax8a5gOIistBKfezK08SyIy2HXi9dKU673pasx5vamDhpm3wis3LP3/KLhrw0Wfjhy+bOF0QKBgQDnihtUXWW4MBbn5dMeUFTKefgw/kmxnTc9FyR9YJDBJ0b4vOsi6I0HuuQzOCFS3qXLdmlmkhfGk8089fBWAQ8rlQZUvMl9XyX3T7EEL8kIKUpnAS1o1jzb/ls1RU5735L/ngSzr0V5fT7Da74WSXhRk3esUkZserpLx0JbXtMpZQKBgQCWrGf5dkyoaogV9RHtE49oO1zA+1iF+tX+kR6g90fcUHQ1onyYvtEEV/vhzxLjNi/EKek9OuEGCQus7Kg9gZPeDLDydCFjOQX76e8LGSCOop5j2809QDFQ2lXMW1zfq9UmbtOa5lK7VgOe6iSZVWWrspAa1yBz8COkMvV4Baq4UQKBgCDuQo7QLcxxgoB+7nTsRfL6P/Nv5zlMu/ODXBw85LmkBXMRI3w2iQBlc1lZjVvE8N2sPLdq5djHYrRd4k3JHsg7DMh2hU3Af5zaB7optbTkcoGN6FB1z/gWCBDeh5gUp0qVxeNsdTwfNRMEOufekS9BAw9OMFfzaJWohGaMaQoFAoGBAMuwwMYAhUuMcAHuhzy52/KBYcSLcqigsrrQzgdj3x8X/CZuFvez1ErBbgn+IjVgx3teZfRVzsvblEOo4yrohkMPfmWTgH1AHNSTDeBnPsw3lzrk+DdWDYCiUWkgRr+tEIJF7KMreNHvR5bK7is7UFowd9FcOGnPe8aN/Ww4H+Px"
+            let publicKeyBS64 = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuE+vROTQEI3/MmQ3tbKT4s2xpIJqmMa/tK8tzSGDZJKX2uBqcD+RRXoPP2ZNtkjR6hcvbcTJMFX8QEy49rQfwXKqo4VMavObp0JRsQMmGrbMuVXMTq6J6oszY43d+/zBDh1u1d2pytLB3rPgRmrf9rddLWRVoT/ijReJdA9krrJmfog/wvmL/FABbVgJPc6XFGOjJxptE7/xQlZIsG2lA8H89vZnkJ27HtuIkcYET0OxdUy4iyJ4q+LGryg+eeYT0wBBSI3dCXrb90VMheKmkY5KPG33uxdBkl7ULSIprt/uaGq6MSsYN1vURa9wSlZhnNQA9ixzR2EhEdy/TYVEdQIDAQAB"
+            let signature64 = "ezSPgdjI4dXd20xMObVGUFnNuW9WOHfL5Aw07jDFDiwjd3zL+HdPcAyCTmG09YlvIdMbTFWFkGuCJZqcjDDbzU5x64y29xxM7zKOq75nDTiXiOsvKp5uX0/tGWseyajniz+MCbaHhJ4buhwybFXnkYMdKPzL9LrXrOtejbQ/A1OnwN2QrJY7tkCbfBGZ/2o5bxgPZWtl53gGsOXNlsjMw8CWk7i7u1UIT0OKEwKpdgnfPA+QwyOUR4lOv7Tx0Nib20vCp5nIUajMgQsRamDKzp0hZLBTibpXJ/j1vRML4JVp3Eabj5wf01PCNfKJ1Ur3S/WIDSRtdOM1FutIq8Qvjg=="
+            let privateKeyBS = this.base64ToArrayBuffer(privateKeyBS64);
+            let publicKeyBS = this.base64ToArrayBuffer(publicKeyBS64);
+            let signature = this.base64ToArrayBuffer(signature64);
+            let privateKeyBSHash = await crypto.subtle.digest('SHA-256', privateKeyBS);
+            let publicKeyBSHash = await crypto.subtle.digest('SHA-256', publicKeyBS);
             console.log("privateKeyBSHash", privateKeyBSHash);
             console.log("publicKeyBSHash", publicKeyBSHash);
 
-            var privateKeyForSigning = await window.crypto.subtle.importKey(
+            let privateKeyForSigning = await window.crypto.subtle.importKey(
                 "pkcs8",
                 privateKeyBS,
                 {
@@ -1617,7 +1637,7 @@ function makeXchg() {
             );
             console.log("privateKeyForSigning", privateKeyForSigning)
 
-            var publicKey = await window.crypto.subtle.importKey("spki",
+            let publicKey = await window.crypto.subtle.importKey("spki",
                 publicKeyBS,
                 {
                     name: "RSA-PSS",
@@ -1627,22 +1647,22 @@ function makeXchg() {
                 ["verify"]
             );
             console.log("publicKey", publicKey);
-            var exportedPublicKey = await window.crypto.subtle.exportKey("spki", publicKey);
+            let exportedPublicKey = await window.crypto.subtle.exportKey("spki", publicKey);
             exportedPublicKey = this.arrayBufferToBase64(exportedPublicKey)
             console.log("exportedPublicKey", exportedPublicKey);
 
 
-            var dataToVerify = new ArrayBuffer(3)
-            var dataToVerifyView = new DataView(dataToVerify);
+            let dataToVerify = new ArrayBuffer(3)
+            let dataToVerifyView = new DataView(dataToVerify);
             dataToVerifyView.setUint8(0, 42)
             dataToVerifyView.setUint8(1, 43)
             dataToVerifyView.setUint8(2, 44)
 
-            var hash = await crypto.subtle.digest('SHA-256', dataToVerify);
+            let hash = await crypto.subtle.digest('SHA-256', dataToVerify);
             //hash = await crypto.subtle.digest('SHA-256', hash);
             hash = dataToVerify;
 
-            var resSign = await window.crypto.subtle.sign(
+            let resSign = await window.crypto.subtle.sign(
                 {
                     name: "RSA-PSS",
                     saltLength: 32,
@@ -1652,7 +1672,7 @@ function makeXchg() {
             );
             console.log("resSign", resSign);
 
-            var res = await window.crypto.subtle.verify(
+            let res = await window.crypto.subtle.verify(
                 {
                     name: "RSA-PSS",
                     saltLength: 32,
